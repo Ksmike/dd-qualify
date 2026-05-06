@@ -18,7 +18,7 @@ import { UserApiKeyModel } from "@/lib/models/UserApiKeyModel";
 import {
   ApiKeyProvider,
   DiligenceArtifactType,
-  type DiligenceCoreQuestion,
+  DiligenceCoreQuestion,
   DiligenceJobStatus,
   DiligenceStageName,
   DiligenceStageStatus,
@@ -769,7 +769,18 @@ export class DiligenceWorker {
       return null;
     }
 
-    const [entities, claims, gaps, prevAnswers] = await Promise.all([
+    const [classifications, entities, claims, gaps, prevAnswers] = await Promise.all([
+      db.diligenceDocumentClassification.findMany({
+        where: { jobId: ctx.jobId },
+        orderBy: { documentFilename: "asc" },
+        select: {
+          documentFilename: true,
+          type: true,
+          vintage: true,
+          authoritativeness: true,
+          relevance: true,
+        },
+      }),
       db.diligenceEntity.findMany({
         where: { jobId: ctx.jobId },
         orderBy: { createdAt: "asc" },
@@ -805,6 +816,18 @@ export class DiligenceWorker {
     ]);
 
     const blocks: string[] = [];
+
+    if (classifications.length > 0) {
+      blocks.push(
+        "Document classifications (weight evidence by authoritativeness — primary > secondary > derivative):",
+        ...classifications.map(
+          (doc) =>
+            `- ${doc.documentFilename} — type=${doc.type}, authoritativeness=${doc.authoritativeness}, relevance=${doc.relevance}` +
+            (doc.vintage ? `, vintage=${doc.vintage}` : "")
+        ),
+        ""
+      );
+    }
 
     if (entities.length > 0) {
       blocks.push(
@@ -862,7 +885,20 @@ export class DiligenceWorker {
     const { ctx, summary, items, structured, evidenceGaps } = input;
     const chunkMap = await this.loadChunkSourceMap(ctx.jobId);
 
-    if (ctx.stage === DiligenceStageName.ENTITY_EXTRACTION) {
+    if (ctx.stage === DiligenceStageName.DOCUMENT_CLASSIFICATION) {
+      await db.diligenceDocumentClassification.deleteMany({
+        where: { jobId: ctx.jobId },
+      });
+      const rows = items
+        .map((item) => buildClassificationRow(item, ctx))
+        .filter((row): row is Prisma.DiligenceDocumentClassificationCreateManyInput => row !== null);
+      if (rows.length > 0) {
+        await db.diligenceDocumentClassification.createMany({
+          data: rows,
+          skipDuplicates: true,
+        });
+      }
+    } else if (ctx.stage === DiligenceStageName.ENTITY_EXTRACTION) {
       await db.diligenceEntity.deleteMany({ where: { jobId: ctx.jobId } });
       const dedupedEntities = mergeEntities(items, chunkMap);
       if (dedupedEntities.length > 0) {
@@ -955,20 +991,23 @@ export class DiligenceWorker {
       });
     }
 
-    // Evidence gaps are stage-agnostic — persist whenever the LLM returns them.
+    // Evidence gaps are stage-agnostic. Dedup is scoped to the source stage so
+    // multiple stages without a question mapping (CLASSIFICATION, INDEXING,
+    // ENTITY/CLAIM extraction, CORROBORATION, OPEN_QUESTIONS, summaries) can
+    // each contribute Q7_EVIDENCE gaps without overwriting each other.
+    await db.diligenceEvidenceGap.deleteMany({
+      where: { jobId: ctx.jobId, sourceStage: ctx.stage },
+    });
     if (evidenceGaps.length > 0) {
       const question =
-        STAGE_TO_QUESTION[ctx.stage] ??
-        (("Q7_EVIDENCE" as const) as DiligenceCoreQuestion);
-      await db.diligenceEvidenceGap.deleteMany({
-        where: { jobId: ctx.jobId, question },
-      });
+        STAGE_TO_QUESTION[ctx.stage] ?? DiligenceCoreQuestion.Q7_EVIDENCE;
       await db.diligenceEvidenceGap.createMany({
         data: evidenceGaps.map((gap) => ({
           projectId: ctx.projectId,
           jobId: ctx.jobId,
           userId: ctx.userId,
           question,
+          sourceStage: ctx.stage,
           title: asString(gap.title, "Evidence gap"),
           description: asString(gap.description, ""),
           severity: normalizeSeverity(gap.severity),
@@ -1235,6 +1274,67 @@ function buildContradictionRow(
       sources_b: refsB.map((id) => chunkMap.get(id) ?? id),
     }),
   };
+}
+
+function buildClassificationRow(
+  item: Record<string, unknown>,
+  ctx: StageContext
+): Prisma.DiligenceDocumentClassificationCreateManyInput | null {
+  const documentPathname =
+    asNullableString(item.document_pathname ?? item.documentPathname) ??
+    asNullableString(item.pathname);
+  if (!documentPathname) {
+    return null;
+  }
+  return {
+    projectId: ctx.projectId,
+    jobId: ctx.jobId,
+    userId: ctx.userId,
+    documentPathname,
+    documentFilename: asString(
+      item.filename ?? item.documentFilename,
+      documentPathname
+    ),
+    type: normalizeClassificationType(item.type),
+    vintage:
+      asNullableString(item.vintage) ?? null,
+    authoritativeness: normalizeAuthoritativeness(item.authoritativeness),
+    relevance: normalizeRelevance(item.relevance),
+    topicsCovered: toInputJson(
+      asStringArray(item.topics_covered ?? item.topicsCovered)
+    ),
+    confidence: asNumber(item.confidence),
+    chunkRefs: toInputJson(asStringArray(item.chunk_refs ?? item.chunkRefs)),
+    rationale: asNullableString(item.rationale) ?? null,
+  };
+}
+
+function normalizeClassificationType(value: unknown): string {
+  const normalized = asString(value, "").toLowerCase();
+  const accepted = new Set([
+    "financial",
+    "legal",
+    "operational",
+    "pitch",
+    "customer",
+    "hiring",
+    "technical",
+    "reference",
+    "other",
+  ]);
+  return accepted.has(normalized) ? normalized : "other";
+}
+
+function normalizeAuthoritativeness(value: unknown): string {
+  const normalized = asString(value, "").toLowerCase();
+  const accepted = new Set(["primary", "secondary", "derivative"]);
+  return accepted.has(normalized) ? normalized : "secondary";
+}
+
+function normalizeRelevance(value: unknown): string {
+  const normalized = asString(value, "").toLowerCase();
+  const accepted = new Set(["high", "medium", "low"]);
+  return accepted.has(normalized) ? normalized : "medium";
 }
 
 function buildOpenQuestionRow(

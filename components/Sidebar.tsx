@@ -13,25 +13,49 @@ export const navItems = [
   { label: "Settings", href: "/settings" },
 ];
 
-const projectSubNav = [
-  { label: "General", suffix: "" },
-  { label: "Insights", suffix: "/insights" },
-  { label: "Tasks", suffix: "/tasks" },
-  { label: "Report", suffix: "/report" },
-];
+type ProjectSubNavItem = {
+  label: string;
+  suffix: string;
+};
+
+function buildProjectSubNav(input: {
+  hasInsights: boolean;
+  hasReports: boolean;
+}): ProjectSubNavItem[] {
+  return [
+    { label: "General", suffix: "" },
+    ...(input.hasInsights ? [{ label: "Insights", suffix: "/insights" }] : []),
+    ...(input.hasReports ? [{ label: "Reports", suffix: "/report" }] : []),
+    { label: "Enquiries", suffix: "/enquiries" },
+  ];
+}
 
 export function Sidebar() {
   const pathname = usePathname();
   const projectMatch = pathname.match(/^\/project\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
-  const [projectName, setProjectName] = useState<string | null>(null);
+  const [projectSidebarData, setProjectSidebarData] = useState<{
+    id: string;
+    name: string;
+    hasInsights: boolean;
+    hasReports: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!projectId) {
-      setProjectName(null);
+      setProjectSidebarData(null);
       return;
     }
-    getProjectForSidebar(projectId).then((p) => setProjectName(p?.name ?? null));
+
+    let isMounted = true;
+    getProjectForSidebar(projectId).then((project) => {
+      if (!isMounted) return;
+      setProjectSidebarData(project);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [projectId]);
 
   return (
@@ -40,7 +64,7 @@ export function Sidebar() {
         {projectId ? (
           <ProjectNav
             projectId={projectId}
-            projectName={projectName}
+            projectSidebarData={projectSidebarData}
             pathname={pathname}
           />
         ) : (
@@ -72,13 +96,23 @@ function DefaultNav({ pathname }: { pathname: string }) {
 
 function ProjectNav({
   projectId,
-  projectName,
+  projectSidebarData,
   pathname,
 }: {
   projectId: string;
-  projectName: string | null;
+  projectSidebarData: {
+    id: string;
+    name: string;
+    hasInsights: boolean;
+    hasReports: boolean;
+  } | null;
   pathname: string;
 }) {
+  const projectSubNav = buildProjectSubNav({
+    hasInsights: projectSidebarData?.hasInsights ?? false,
+    hasReports: projectSidebarData?.hasReports ?? false,
+  });
+
   return (
     <div className="flex flex-col gap-0.5">
       {/* Back to projects */}
@@ -93,9 +127,9 @@ function ProjectNav({
       {/* Project name label */}
       <p
         className="mb-1 truncate px-3 text-xs font-semibold uppercase tracking-wider text-foreground/40"
-        title={projectName ?? undefined}
+        title={projectSidebarData?.name ?? undefined}
       >
-        {projectName ?? <span className="opacity-60">Loading…</span>}
+        {projectSidebarData?.name ?? <span className="opacity-60">Loading…</span>}
       </p>
 
       {/* Sub-nav items */}

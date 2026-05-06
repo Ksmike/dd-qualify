@@ -27,4 +27,5 @@ model User {
     diligenceQuestionAnswers DiligenceQuestionAnswer[]
     diligenceEvidenceGaps DiligenceEvidenceGap[]
     diligenceOpenQuestions DiligenceOpenQuestion[]
+    diligenceDocumentClassifications DiligenceDocumentClassification[]
 }

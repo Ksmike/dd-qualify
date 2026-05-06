@@ -212,6 +212,11 @@ export type AppLabels = {
         EVIDENCE_MAP: string;
       };
     };
+    enquiries: {
+      heading: string;
+      description: string;
+      placeholder: string;
+    };
     projectCreation: {
       heading: string;
       description: string;

@@ -11,8 +11,9 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
 }));
 
+const mockGetProjectForSidebar = vi.fn();
 vi.mock("@/lib/actions/sidebar", () => ({
-  getProjectForSidebar: vi.fn().mockResolvedValue({ id: "p-1", name: "Alpha Project" }),
+  getProjectForSidebar: (...args: unknown[]) => mockGetProjectForSidebar(...args),
 }));
 
 describe("Sidebar — default nav", () => {
@@ -37,21 +38,67 @@ describe("Sidebar — default nav", () => {
 
 describe("Sidebar — project nav", () => {
   it("renders project sub-nav links when on a project route", async () => {
+    mockGetProjectForSidebar.mockResolvedValue({
+      id: "p-1",
+      name: "Alpha Project",
+      hasInsights: true,
+      hasReports: true,
+    });
     mockPathname.mockReturnValue("/project/p-1");
     render(<Sidebar />);
     expect(screen.getByRole("link", { name: "General" })).toHaveAttribute("href", "/project/p-1");
-    expect(screen.getByRole("link", { name: "Insights" })).toHaveAttribute("href", "/project/p-1/insights");
-    expect(screen.getByRole("link", { name: "Tasks" })).toHaveAttribute("href", "/project/p-1/tasks");
-    expect(screen.getByRole("link", { name: "Report" })).toHaveAttribute("href", "/project/p-1/report");
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Insights" })).toHaveAttribute(
+        "href",
+        "/project/p-1/insights"
+      )
+    );
+    expect(screen.getByRole("link", { name: "Reports" })).toHaveAttribute(
+      "href",
+      "/project/p-1/report"
+    );
+    expect(screen.getByRole("link", { name: "Enquiries" })).toHaveAttribute(
+      "href",
+      "/project/p-1/enquiries"
+    );
+  });
+
+  it("hides insights and reports links when the project has no data for them", async () => {
+    mockGetProjectForSidebar.mockResolvedValue({
+      id: "p-1",
+      name: "Alpha Project",
+      hasInsights: false,
+      hasReports: false,
+    });
+    mockPathname.mockReturnValue("/project/p-1");
+
+    render(<Sidebar />);
+
+    await waitFor(() => expect(screen.getByText("Alpha Project")).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: "Insights" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Reports" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Enquiries" })).toBeInTheDocument();
   });
 
   it("shows the project name once loaded", async () => {
+    mockGetProjectForSidebar.mockResolvedValue({
+      id: "p-1",
+      name: "Alpha Project",
+      hasInsights: true,
+      hasReports: true,
+    });
     mockPathname.mockReturnValue("/project/p-1");
     render(<Sidebar />);
     await waitFor(() => expect(screen.getByText("Alpha Project")).toBeInTheDocument());
   });
 
   it("renders a back link to /dashboard", () => {
+    mockGetProjectForSidebar.mockResolvedValue({
+      id: "p-1",
+      name: "Alpha Project",
+      hasInsights: true,
+      hasReports: true,
+    });
     mockPathname.mockReturnValue("/project/p-1");
     render(<Sidebar />);
     expect(screen.getByRole("link", { name: /Projects/i })).toHaveAttribute("href", "/dashboard");

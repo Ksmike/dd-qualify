@@ -54,6 +54,11 @@ const mockDb = {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
   },
+  diligenceDocumentClassification: {
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
   project: {
     updateMany: vi.fn(),
   },
@@ -185,6 +190,7 @@ beforeEach(() => {
   mockDb.diligenceClaim.findMany.mockResolvedValue([]);
   mockDb.diligenceQuestionAnswer.findMany.mockResolvedValue([]);
   mockDb.diligenceEvidenceGap.findMany.mockResolvedValue([]);
+  mockDb.diligenceDocumentClassification.findMany.mockResolvedValue([]);
   mockFindByIdForUser.mockResolvedValue({
     id: "key-1",
     enabled: true,

@@ -166,6 +166,11 @@ export const appLabels: AppLabels["app"] = {
       EVIDENCE_MAP: "Evidence map",
     },
   },
+  enquiries: {
+    heading: "Enquiries",
+    description: "Open questions and follow-ups for this project.",
+    placeholder: "Enquiries are coming soon.",
+  },
   projectCreation: {
     heading: "Create project",
     description: "Name your project to start qualification.",

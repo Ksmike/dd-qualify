@@ -9,19 +9,34 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { getProjectForSidebar } from "@/lib/actions/sidebar";
 
-const projectSubNav = [
-  { label: "General", suffix: "" },
-  { label: "Insights", suffix: "/insights" },
-  { label: "Tasks", suffix: "/tasks" },
-  { label: "Report", suffix: "/report" },
-];
+type ProjectSubNavItem = {
+  label: string;
+  suffix: string;
+};
+
+function buildProjectSubNav(input: {
+  hasInsights: boolean;
+  hasReports: boolean;
+}): ProjectSubNavItem[] {
+  return [
+    { label: "General", suffix: "" },
+    ...(input.hasInsights ? [{ label: "Insights", suffix: "/insights" }] : []),
+    ...(input.hasReports ? [{ label: "Reports", suffix: "/report" }] : []),
+    { label: "Enquiries", suffix: "/enquiries" },
+  ];
+}
 
 export function MobileSidebar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const projectMatch = pathname.match(/^\/project\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
-  const [projectName, setProjectName] = useState<string | null>(null);
+  const [projectSidebarData, setProjectSidebarData] = useState<{
+    id: string;
+    name: string;
+    hasInsights: boolean;
+    hasReports: boolean;
+  } | null>(null);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -32,16 +47,30 @@ export function MobileSidebar() {
 
   useEffect(() => {
     if (!projectId) {
-      setProjectName(null);
+      setProjectSidebarData(null);
       return;
     }
-    getProjectForSidebar(projectId).then((p) => setProjectName(p?.name ?? null));
+
+    let isMounted = true;
+    getProjectForSidebar(projectId).then((project) => {
+      if (!isMounted) return;
+      setProjectSidebarData(project);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [projectId]);
 
   // Close on route change
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  const projectSubNav = buildProjectSubNav({
+    hasInsights: projectSidebarData?.hasInsights ?? false,
+    hasReports: projectSidebarData?.hasReports ?? false,
+  });
 
   return (
     <>
@@ -100,9 +129,9 @@ export function MobileSidebar() {
 
               <p
                 className="mb-1 truncate px-3 text-xs font-semibold uppercase tracking-wider text-foreground/40"
-                title={projectName ?? undefined}
+                title={projectSidebarData?.name ?? undefined}
               >
-                {projectName ?? <span className="opacity-60">Loading…</span>}
+                {projectSidebarData?.name ?? <span className="opacity-60">Loading…</span>}
               </p>
 
               {projectSubNav.map(({ label, suffix }) => {

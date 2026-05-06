@@ -118,6 +118,7 @@ model DiligenceJob {
     questionAnswers DiligenceQuestionAnswer[]
     evidenceGaps DiligenceEvidenceGap[]
     openQuestions DiligenceOpenQuestion[]
+    documentClassifications DiligenceDocumentClassification[]
 
     @@index([projectId, createdAt])
     @@index([userId, createdAt])
@@ -318,6 +319,7 @@ model DiligenceEvidenceGap {
     jobId           String
     userId          String
     question        DiligenceCoreQuestion
+    sourceStage     DiligenceStageName?
     title           String
     description     String
     severity        String
@@ -329,7 +331,34 @@ model DiligenceEvidenceGap {
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@index([jobId])
+    @@index([jobId, sourceStage])
     @@index([projectId, question])
+}
+
+model DiligenceDocumentClassification {
+    id                String   @id @default(cuid())
+    projectId         String
+    jobId             String
+    userId            String
+    documentPathname  String
+    documentFilename  String
+    type              String
+    vintage           String?
+    authoritativeness String
+    relevance         String
+    topicsCovered     Json?
+    confidence        Float?
+    chunkRefs         Json?
+    rationale         String?
+    createdAt         DateTime @default(now())
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([jobId, documentPathname])
+    @@index([projectId])
+    @@index([jobId])
 }
 
 model DiligenceOpenQuestion {

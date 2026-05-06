@@ -12,6 +12,19 @@ vi.mock("@/lib/models/ProjectModel", () => ({
   },
 }));
 
+const mockFindFirstJob = vi.fn();
+const mockFindFirstArtifact = vi.fn();
+vi.mock("@/lib/db", () => ({
+  db: {
+    diligenceJob: {
+      findFirst: mockFindFirstJob,
+    },
+    diligenceArtifact: {
+      findFirst: mockFindFirstArtifact,
+    },
+  },
+}));
+
 const { getProjectForSidebar } = await import("@/lib/actions/sidebar");
 
 describe("getProjectForSidebar", () => {
@@ -26,6 +39,8 @@ describe("getProjectForSidebar", () => {
 
     expect(result).toBeNull();
     expect(mockFindByIdForUser).not.toHaveBeenCalled();
+    expect(mockFindFirstJob).not.toHaveBeenCalled();
+    expect(mockFindFirstArtifact).not.toHaveBeenCalled();
   });
 
   it("returns null when session has no user id", async () => {
@@ -51,6 +66,8 @@ describe("getProjectForSidebar", () => {
 
   it("returns id and name when project is found", async () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
+    mockFindFirstJob.mockResolvedValue({ id: "job-1" });
+    mockFindFirstArtifact.mockResolvedValue({ id: "artifact-1" });
     mockFindByIdForUser.mockResolvedValue({
       id: "project-1",
       name: "Acme Corp",
@@ -60,6 +77,32 @@ describe("getProjectForSidebar", () => {
 
     const result = await getProjectForSidebar("project-1");
 
-    expect(result).toEqual({ id: "project-1", name: "Acme Corp" });
+    expect(result).toEqual({
+      id: "project-1",
+      name: "Acme Corp",
+      hasInsights: true,
+      hasReports: true,
+    });
+  });
+
+  it("returns false flags when no insights or reports exist", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "user-1" } });
+    mockFindFirstJob.mockResolvedValue(null);
+    mockFindFirstArtifact.mockResolvedValue(null);
+    mockFindByIdForUser.mockResolvedValue({
+      id: "project-1",
+      name: "Acme Corp",
+      status: "draft",
+      createdAt: new Date(),
+    });
+
+    const result = await getProjectForSidebar("project-1");
+
+    expect(result).toEqual({
+      id: "project-1",
+      name: "Acme Corp",
+      hasInsights: false,
+      hasReports: false,
+    });
   });
 });
