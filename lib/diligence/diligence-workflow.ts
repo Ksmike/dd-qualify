@@ -12,6 +12,7 @@ const FATAL_MESSAGE_PATTERNS = [
   "Invalid project storage prefix.",
   "Missing user API key reference",
   "Selected API key is missing or disabled.",
+  "invalid input value for enum \"DiligenceStageName\"",
 ];
 
 async function runStage(input: {

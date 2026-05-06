@@ -36,6 +36,7 @@ const {
   STAGE_TO_QUESTION,
   getStageProgressPercent,
   getNextStage,
+  normalizeStageName,
 } = await import("@/lib/diligence/stages");
 
 describe("DILIGENCE_STAGE_SEQUENCE", () => {
@@ -87,6 +88,12 @@ describe("getStageProgressPercent", () => {
   it("returns 0 for an unknown stage", () => {
     expect(getStageProgressPercent("UNKNOWN_STAGE" as never)).toBe(0);
   });
+
+  it("supports legacy stage aliases", () => {
+    expect(getStageProgressPercent("RISK_EXTRACTION" as never)).toBe(
+      getStageProgressPercent("Q6_RISK_ANALYSIS")
+    );
+  });
 });
 
 describe("getNextStage", () => {
@@ -106,5 +113,30 @@ describe("getNextStage", () => {
 
   it("returns the first stage for an unknown stage", () => {
     expect(getNextStage("UNKNOWN" as never)).toBe("DOCUMENT_EXTRACTION");
+  });
+
+  it("handles legacy stage aliases when finding next stage", () => {
+    expect(getNextStage("RISK_EXTRACTION" as never)).toBe(
+      "Q8_FAILURE_MODES_AND_FRAGILITY"
+    );
+    expect(getNextStage("FINAL_REPORT_GENERATION" as never)).toBeNull();
+  });
+});
+
+describe("normalizeStageName", () => {
+  it("maps known legacy stages to current stages", () => {
+    expect(normalizeStageName("RISK_EXTRACTION")).toBe("Q6_RISK_ANALYSIS");
+    expect(normalizeStageName("EXECUTIVE_SUMMARY_GENERATION")).toBe(
+      "EXECUTIVE_SUMMARY"
+    );
+    expect(normalizeStageName("FINAL_REPORT_GENERATION")).toBe("FINAL_REPORT");
+  });
+
+  it("returns null for unsupported values", () => {
+    expect(normalizeStageName("NOT_A_STAGE")).toBeNull();
+  });
+
+  it("passes through current enum values", () => {
+    expect(normalizeStageName("CORROBORATION")).toBe("CORROBORATION");
   });
 });

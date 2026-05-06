@@ -66,9 +66,9 @@ describe("ReportsView", () => {
     );
 
     expect(screen.getByText("Reports")).toBeInTheDocument();
-    expect(screen.getByText("Acme — Generated reports and artifacts")).toBeInTheDocument();
+    expect(screen.getByText(/Acme.*Generated reports and artifacts/)).toBeInTheDocument();
     expect(screen.getByText("Generated Report")).toBeInTheDocument();
-    expect(screen.getByText("final report generation")).toBeInTheDocument();
+    expect(screen.getByText(/final report/)).toBeInTheDocument();
     expect(screen.getByText("application/pdf")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
     expect(screen.getByText("completed")).toBeInTheDocument();

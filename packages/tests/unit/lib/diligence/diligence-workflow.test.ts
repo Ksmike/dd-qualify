@@ -139,4 +139,16 @@ describe("diligenceWorkflow", () => {
       diligenceWorkflow({ jobId: "job-1", userId: "user-1", priority: 1 })
     ).rejects.toThrow("Network timeout");
   });
+
+  it("treats stage-enum mismatch as fatal", async () => {
+    mockRunNextStage.mockRejectedValueOnce(
+      new Error(
+        'Invalid `prisma.diligenceStageRun.upsert()` invocation: invalid input value for enum "DiligenceStageName": "RISK_EXTRACTION"'
+      )
+    );
+
+    await expect(
+      diligenceWorkflow({ jobId: "job-1", userId: "user-1", priority: 1 })
+    ).rejects.toThrow('invalid input value for enum "DiligenceStageName"');
+  });
 });

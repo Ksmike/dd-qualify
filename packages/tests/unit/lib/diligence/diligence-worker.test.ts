@@ -245,8 +245,8 @@ describe("DiligenceWorker — CORROBORATION", () => {
       },
     ]);
     mockDb.diligenceChunk.findMany.mockResolvedValue([
-      { id: "c1", documentPathname: "deck.pdf" },
-      { id: "c2", documentPathname: "financials.pdf" },
+      { id: "c1", documentFilename: "deck.pdf", documentPathname: "deck.pdf", page: 1, text: "Pitch deck content." },
+      { id: "c2", documentFilename: "financials.pdf", documentPathname: "financials.pdf", page: 1, text: "Financial data." },
     ]);
 
     const worker = new DiligenceWorker();
@@ -278,7 +278,7 @@ describe("DiligenceWorker — CORROBORATION", () => {
       },
     ]);
     mockDb.diligenceChunk.findMany.mockResolvedValue([
-      { id: "c1", documentPathname: "deck.pdf" },
+      { id: "c1", documentFilename: "deck.pdf", documentPathname: "deck.pdf", page: 1, text: "Pitch deck content." },
     ]);
 
     const worker = new DiligenceWorker();
@@ -312,7 +312,7 @@ describe("DiligenceWorker — question-stage persistence", () => {
       rawText: "{}",
     });
     mockDb.diligenceChunk.findMany.mockResolvedValue([
-      { id: "c1", documentPathname: "incorp.pdf" },
+      { id: "c1", documentFilename: "incorp.pdf", documentPathname: "incorp.pdf", page: 1, text: "Acme Inc. was incorporated in Delaware." },
     ]);
 
     const worker = new DiligenceWorker();

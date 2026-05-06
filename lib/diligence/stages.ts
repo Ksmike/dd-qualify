@@ -3,6 +3,15 @@ import {
   DiligenceStageName,
 } from "@/lib/generated/prisma/client";
 
+const LEGACY_STAGE_ALIASES: Record<string, DiligenceStageName> = {
+  RISK_EXTRACTION: DiligenceStageName.Q6_RISK_ANALYSIS,
+  CROSS_DOCUMENT_VALIDATION: DiligenceStageName.CORROBORATION,
+  CONTRADICTION_DETECTION: DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY,
+  EVIDENCE_GRAPH_GENERATION: DiligenceStageName.CORROBORATION,
+  EXECUTIVE_SUMMARY_GENERATION: DiligenceStageName.EXECUTIVE_SUMMARY,
+  FINAL_REPORT_GENERATION: DiligenceStageName.FINAL_REPORT,
+};
+
 export const DILIGENCE_STAGE_SEQUENCE: DiligenceStageName[] = [
   DiligenceStageName.DOCUMENT_EXTRACTION,
   DiligenceStageName.DOCUMENT_CLASSIFICATION,
@@ -34,8 +43,30 @@ export const STAGE_TO_QUESTION: Partial<
   [DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY]: DiligenceCoreQuestion.Q8_FAILURE_MODES,
 };
 
-export function getStageProgressPercent(stage: DiligenceStageName): number {
-  const index = DILIGENCE_STAGE_SEQUENCE.indexOf(stage);
+export function normalizeStageName(
+  stage: DiligenceStageName | string | null | undefined
+): DiligenceStageName | null {
+  if (!stage) {
+    return null;
+  }
+
+  const value = String(stage);
+  if (
+    (Object.values(DiligenceStageName) as string[]).includes(value)
+  ) {
+    return value as DiligenceStageName;
+  }
+
+  return LEGACY_STAGE_ALIASES[value] ?? null;
+}
+
+export function getStageProgressPercent(stage: DiligenceStageName | string): number {
+  const normalizedStage = normalizeStageName(stage);
+  if (!normalizedStage) {
+    return 0;
+  }
+
+  const index = DILIGENCE_STAGE_SEQUENCE.indexOf(normalizedStage);
   if (index < 0) {
     return 0;
   }
@@ -43,13 +74,18 @@ export function getStageProgressPercent(stage: DiligenceStageName): number {
 }
 
 export function getNextStage(
-  currentStage: DiligenceStageName | null
+  currentStage: DiligenceStageName | string | null
 ): DiligenceStageName | null {
   if (!currentStage) {
     return DILIGENCE_STAGE_SEQUENCE[0] ?? null;
   }
 
-  const currentIndex = DILIGENCE_STAGE_SEQUENCE.indexOf(currentStage);
+  const normalizedCurrentStage = normalizeStageName(currentStage);
+  if (!normalizedCurrentStage) {
+    return DILIGENCE_STAGE_SEQUENCE[0] ?? null;
+  }
+
+  const currentIndex = DILIGENCE_STAGE_SEQUENCE.indexOf(normalizedCurrentStage);
   if (currentIndex < 0) {
     return DILIGENCE_STAGE_SEQUENCE[0] ?? null;
   }
