@@ -19,6 +19,14 @@ vi.mock("@prisma/adapter-pg", () => ({
   },
 }));
 
+vi.mock("@/config", () => ({
+  config: {
+    database: {
+      url: "postgresql://test:test@localhost:5432/testdb",
+    },
+  },
+}));
+
 describe("db", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -39,29 +47,33 @@ describe("db", () => {
         }
       },
     }));
+    vi.mock("@/config", () => ({
+      config: {
+        database: {
+          url: "postgresql://test:test@localhost:5432/testdb",
+        },
+      },
+    }));
     // Clear global singleton
     const g = globalThis as unknown as { prisma: unknown };
     delete g.prisma;
   });
 
   it("creates a PrismaClient with PrismaPg adapter", async () => {
-    process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/testdb";
     const { db } = await import("@/lib/db");
 
-    // Verify the adapter was created with the connection string
+    // Verify the adapter was created with the connection string from config
     expect((db as unknown as { adapter: { connectionString: string } }).adapter.connectionString).toBe(
       "postgresql://test:test@localhost:5432/testdb"
     );
   });
 
   it("exports a db instance", async () => {
-    process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/testdb";
     const { db } = await import("@/lib/db");
     expect(db).toBeDefined();
   });
 
   it("reuses existing global instance in development", async () => {
-    process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/testdb";
     process.env.NODE_ENV = "development";
 
     const existingClient = { _existing: true };

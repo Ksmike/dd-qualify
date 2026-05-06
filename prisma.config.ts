@@ -3,13 +3,15 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+const databaseUrl =
+  process.env["DATABASE_URL"] ?? process.env["dd_DATABASE_URL"];
+
 export default defineConfig({
   schema: "prisma/",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    // Pooled connection via pgbouncer (for queries and migrations)
-    url: process.env["DATABASE_URL"],
+    url: databaseUrl,
   },
 });
