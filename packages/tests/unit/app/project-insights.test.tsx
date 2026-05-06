@@ -19,6 +19,8 @@ const mockLabels = {
   createdLabel: "Created",
   completedLabel: "Completed",
   statusLabel: "Status",
+  typeLabel: "Type",
+  confidenceLabel: "Confidence",
   stagesHeading: "Pipeline Stages",
   findingsHeading: "Findings",
   claimsHeading: "Claims",

@@ -2,11 +2,23 @@ import { get, list } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { buildProjectBlobPrefix } from "@/lib/blob/documents";
 import { DiligenceLLMService } from "@/lib/diligence/diligence-llm-service";
-import { getStageProgressPercent, getNextStage } from "@/lib/diligence/stages";
+import { getStageProgressPercent, getNextStage, STAGE_TO_QUESTION } from "@/lib/diligence/stages";
+import { getStagePromptPlan } from "@/lib/diligence/prompts";
+import {
+  extractDocument,
+  getLowercaseExtension,
+} from "@/lib/diligence/document-extractors";
+import { chunkDocument, type ChunkRecord } from "@/lib/diligence/chunker";
+import {
+  corroborateClaims,
+  type RawClaim,
+  type ChunkSourceMap,
+} from "@/lib/diligence/corroboration";
 import { UserApiKeyModel } from "@/lib/models/UserApiKeyModel";
 import {
   ApiKeyProvider,
   DiligenceArtifactType,
+  type DiligenceCoreQuestion,
   DiligenceJobStatus,
   DiligenceStageName,
   DiligenceStageStatus,
@@ -14,6 +26,8 @@ import {
   type Prisma,
   ProjectDocumentProcessingStatus,
 } from "@/lib/generated/prisma/client";
+
+const MAX_CHUNK_PROMPT_CHARS = 60_000; // ~15k tokens — conservative budget for question stages
 
 type StageExecutionResult = {
   outputJson: Record<string, unknown>;
@@ -23,41 +37,33 @@ type StageExecutionResult = {
   estimatedCostUsd?: number;
 };
 
+type StageContext = {
+  stage: DiligenceStageName;
+  jobId: string;
+  projectId: string;
+  userId: string;
+  selectedProvider: ApiKeyProvider;
+  selectedModel: string;
+  fallbackProviders: ApiKeyProvider[];
+  userApiKeyId: string | null;
+};
+
+type LlmCredentials = {
+  primary: { provider: ApiKeyProvider; model: string; apiKey: string };
+  fallbacks: Array<{ provider: ApiKeyProvider; model: string; apiKey: string }>;
+};
+
 function toNonNegativeNumber(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : 0;
 }
 
-function parseJsonArray<T>(value: unknown): T[] {
-  if (Array.isArray(value)) {
-    return value as T[];
-  }
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function getLowercaseExtension(pathname: string): string {
-  const lastDotIndex = pathname.lastIndexOf(".");
-  if (lastDotIndex <= 0 || lastDotIndex === pathname.length - 1) {
-    return "";
-  }
-  return pathname.slice(lastDotIndex).toLowerCase();
-}
-
 function toInputJson(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
 
-async function streamToText(stream: ReadableStream<Uint8Array>): Promise<string> {
+async function streamToBytes(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   while (true) {
@@ -69,7 +75,6 @@ async function streamToText(stream: ReadableStream<Uint8Array>): Promise<string>
       chunks.push(value);
     }
   }
-
   const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const merged = new Uint8Array(totalLength);
   let offset = 0;
@@ -77,8 +82,7 @@ async function streamToText(stream: ReadableStream<Uint8Array>): Promise<string>
     merged.set(chunk, offset);
     offset += chunk.length;
   }
-
-  return new TextDecoder("utf-8").decode(merged);
+  return merged;
 }
 
 function estimateCostUsd(
@@ -89,7 +93,6 @@ function estimateCostUsd(
   const outputTokens = toNonNegativeNumber(usage.output_tokens);
   const totalTokens = toNonNegativeNumber(usage.total_tokens);
 
-  // Coarse planning estimates only. Real billing depends on chosen provider/model tiers.
   if (provider === ApiKeyProvider.OPENAI) {
     return inputTokens * 0.00000015 + outputTokens * 0.0000006;
   }
@@ -102,18 +105,40 @@ function estimateCostUsd(
   return 0;
 }
 
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function asStringArray(value: unknown): string[] {
+  return asArray<unknown>(value).filter(
+    (entry): entry is string => typeof entry === "string"
+  );
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 export class DiligenceWorker {
   private readonly llmService = new DiligenceLLMService();
 
   async runNextStage(input: {
     jobId: string;
     userId: string;
-  }): Promise<{ status: "completed" | "progressed" | "waiting_input"; stage?: DiligenceStageName }> {
+  }): Promise<{
+    status: "completed" | "progressed" | "waiting_input";
+    stage?: DiligenceStageName;
+  }> {
     const job = await db.diligenceJob.findFirst({
-      where: {
-        id: input.jobId,
-        userId: input.userId,
-      },
+      where: { id: input.jobId, userId: input.userId },
       select: {
         id: true,
         userId: true,
@@ -141,18 +166,7 @@ export class DiligenceWorker {
 
     const nextStage = getNextStage(job.currentStage);
     if (!nextStage) {
-      await db.diligenceJob.update({
-        where: { id: job.id },
-        data: {
-          status: DiligenceJobStatus.COMPLETED,
-          completedAt: new Date(),
-          progressPercent: 100,
-        },
-      });
-      await db.project.updateMany({
-        where: { id: job.projectId, userId: job.userId },
-        data: { status: "reviewed" },
-      });
+      await this.markJobCompleted(job.id, job.projectId, job.userId);
       return { status: "completed" };
     }
 
@@ -168,12 +182,7 @@ export class DiligenceWorker {
     });
 
     await db.diligenceStageRun.upsert({
-      where: {
-        jobId_stage: {
-          jobId: job.id,
-          stage: nextStage,
-        },
-      },
+      where: { jobId_stage: { jobId: job.id, stage: nextStage } },
       create: {
         jobId: job.id,
         stage: nextStage,
@@ -191,7 +200,7 @@ export class DiligenceWorker {
     });
 
     try {
-      const stageResult = await this.executeStage({
+      const context: StageContext = {
         stage: nextStage,
         jobId: job.id,
         projectId: job.projectId,
@@ -204,18 +213,15 @@ export class DiligenceWorker {
             ) as ApiKeyProvider[])
           : [],
         userApiKeyId: job.userApiKeyId,
-      });
+      };
+
+      const stageResult = await this.executeStage(context);
 
       const tokenUsageTotal = toNonNegativeNumber(stageResult.tokenUsageTotal);
       const estimatedCostUsd = toNonNegativeNumber(stageResult.estimatedCostUsd);
 
       await db.diligenceStageRun.update({
-        where: {
-          jobId_stage: {
-            jobId: job.id,
-            stage: nextStage,
-          },
-        },
+        where: { jobId_stage: { jobId: job.id, stage: nextStage } },
         data: {
           status: DiligenceStageStatus.COMPLETED,
           provider: stageResult.provider ?? null,
@@ -225,7 +231,7 @@ export class DiligenceWorker {
           outputJson: toInputJson(stageResult.outputJson),
           completedAt: new Date(),
           outputArtifactCount: Array.isArray(stageResult.outputJson.items)
-            ? stageResult.outputJson.items.length
+            ? (stageResult.outputJson.items as unknown[]).length
             : 0,
         },
       });
@@ -239,7 +245,8 @@ export class DiligenceWorker {
           currentStage: nextStage,
           progressPercent: nextProgress,
           tokenUsageTotal: { increment: tokenUsageTotal },
-          estimatedCostUsd: toNonNegativeNumber(job.estimatedCostUsd) + estimatedCostUsd,
+          estimatedCostUsd:
+            toNonNegativeNumber(job.estimatedCostUsd) + estimatedCostUsd,
           status: isCompleted
             ? DiligenceJobStatus.COMPLETED
             : DiligenceJobStatus.RUNNING,
@@ -261,12 +268,7 @@ export class DiligenceWorker {
       const message =
         error instanceof Error ? error.message : "Stage execution failed.";
       await db.diligenceStageRun.update({
-        where: {
-          jobId_stage: {
-            jobId: job.id,
-            stage: nextStage,
-          },
-        },
+        where: { jobId_stage: { jobId: job.id, stage: nextStage } },
         data: {
           status: DiligenceStageStatus.FAILED,
           errorMessage: message,
@@ -285,30 +287,42 @@ export class DiligenceWorker {
     }
   }
 
-  private async executeStage(input: {
-    stage: DiligenceStageName;
-    jobId: string;
-    projectId: string;
-    userId: string;
-    selectedProvider: ApiKeyProvider;
-    selectedModel: string;
-    fallbackProviders: ApiKeyProvider[];
-    userApiKeyId: string | null;
-  }): Promise<StageExecutionResult> {
-    if (input.stage === DiligenceStageName.DOCUMENT_EXTRACTION) {
-      return this.runDocumentExtractionStage(input);
-    }
-
-    return this.runLlmStage(input);
+  private async markJobCompleted(jobId: string, projectId: string, userId: string) {
+    await db.diligenceJob.update({
+      where: { id: jobId },
+      data: {
+        status: DiligenceJobStatus.COMPLETED,
+        completedAt: new Date(),
+        progressPercent: 100,
+      },
+    });
+    await db.project.updateMany({
+      where: { id: projectId, userId },
+      data: { status: "reviewed" },
+    });
   }
 
-  private async runDocumentExtractionStage(input: {
-    stage: DiligenceStageName;
-    jobId: string;
-    projectId: string;
-    userId: string;
-  }): Promise<StageExecutionResult> {
-    const prefix = buildProjectBlobPrefix(input.userId, input.projectId);
+  // ───────────────────────── stage routing ─────────────────────────
+
+  private async executeStage(ctx: StageContext): Promise<StageExecutionResult> {
+    switch (ctx.stage) {
+      case DiligenceStageName.DOCUMENT_EXTRACTION:
+        return this.runDocumentExtraction(ctx);
+      case DiligenceStageName.EVIDENCE_INDEXING:
+        return this.runEvidenceIndexing(ctx);
+      case DiligenceStageName.CORROBORATION:
+        return this.runCorroboration(ctx);
+      default:
+        return this.runLlmStage(ctx);
+    }
+  }
+
+  // ───────────────────────── DOCUMENT_EXTRACTION ─────────────────────────
+
+  private async runDocumentExtraction(
+    ctx: StageContext
+  ): Promise<StageExecutionResult> {
+    const prefix = buildProjectBlobPrefix(ctx.userId, ctx.projectId);
     if (!prefix) {
       throw new Error("Invalid project storage prefix.");
     }
@@ -316,25 +330,19 @@ export class DiligenceWorker {
     const { blobs } = await list({ prefix });
     if (blobs.length === 0) {
       await db.diligenceJob.update({
-        where: { id: input.jobId },
+        where: { id: ctx.jobId },
         data: {
           status: DiligenceJobStatus.WAITING_INPUT,
           errorMessage: "No documents uploaded yet.",
         },
       });
       return {
-        outputJson: {
-          items: [],
-          summary: "No source documents available.",
-        },
+        outputJson: { items: [], summary: "No source documents available." },
       };
     }
 
     await db.projectDocument.updateMany({
-      where: {
-        projectId: input.projectId,
-        userId: input.userId,
-      },
+      where: { projectId: ctx.projectId, userId: ctx.userId },
       data: {
         processingStatus: ProjectDocumentProcessingStatus.PROCESSING,
         processingError: null,
@@ -345,51 +353,58 @@ export class DiligenceWorker {
       pathname: string;
       filename: string;
       sizeBytes: number;
-      extractedText: string;
-      extractionMode: "plain_text" | "metadata";
+      pages: Array<{ page: number | null; text: string }>;
+      extractionMode: string;
       processingStatus: ProjectDocumentProcessingStatus;
       processingError: string | null;
+      warnings: string[];
     }> = [];
 
     for (const blob of blobs) {
       const filename = blob.pathname.startsWith(prefix)
         ? blob.pathname.slice(prefix.length)
         : blob.pathname;
-      const extension = getLowercaseExtension(filename);
 
-      let extractedText = "";
-      let extractionMode: "plain_text" | "metadata" = "metadata";
+      let pages: Array<{ page: number | null; text: string }> = [];
+      let extractionMode = "metadata_only";
+      let warnings: string[] = [];
       let processingStatus: ProjectDocumentProcessingStatus =
         ProjectDocumentProcessingStatus.PROCESSED;
       let processingError: string | null = null;
 
-      if (extension === ".txt") {
-        try {
-          const blobResult = await get(blob.pathname, { access: "private" });
-          if (!blobResult || blobResult.statusCode !== 200 || !blobResult.stream) {
-            throw new Error("Text file stream unavailable.");
-          }
-          extractedText = await streamToText(blobResult.stream);
-          extractionMode = "plain_text";
-        } catch (error) {
-          processingStatus = ProjectDocumentProcessingStatus.FAILED;
-          processingError =
-            error instanceof Error ? error.message : "Text extraction failed.";
+      try {
+        const blobResult = await get(blob.pathname, { access: "private" });
+        if (!blobResult || blobResult.statusCode !== 200 || !blobResult.stream) {
+          throw new Error("Document stream unavailable.");
         }
-      } else {
-        extractedText = `Document metadata:\nfilename=${filename}\nsizeBytes=${blob.size}\nnote=Text extraction is only enabled for plain text files in this build.`;
+        const bytes = await streamToBytes(blobResult.stream);
+        const result = await extractDocument({ filename, bytes });
+        pages = result.pages;
+        extractionMode = result.extractionMode;
+        warnings = result.warnings;
+        if (
+          result.extractionMode === "metadata_only" ||
+          pages.every((page) => page.text.trim().length === 0)
+        ) {
+          processingError =
+            warnings[0] ?? "No extractable text found in this document.";
+        }
+      } catch (error) {
+        processingStatus = ProjectDocumentProcessingStatus.FAILED;
+        processingError =
+          error instanceof Error ? error.message : "Extraction failed.";
       }
 
       await db.projectDocument.upsert({
         where: {
           projectId_pathname: {
-            projectId: input.projectId,
+            projectId: ctx.projectId,
             pathname: blob.pathname,
           },
         },
         create: {
-          projectId: input.projectId,
-          userId: input.userId,
+          projectId: ctx.projectId,
+          userId: ctx.userId,
           filename,
           pathname: blob.pathname,
           sizeBytes: blob.size,
@@ -416,38 +431,48 @@ export class DiligenceWorker {
         pathname: blob.pathname,
         filename,
         sizeBytes: blob.size,
-        extractedText,
+        pages,
         extractionMode,
         processingStatus,
         processingError,
+        warnings,
       });
     }
 
     await db.diligenceArtifact.deleteMany({
       where: {
-        jobId: input.jobId,
+        jobId: ctx.jobId,
         stage: DiligenceStageName.DOCUMENT_EXTRACTION,
       },
     });
 
     await db.diligenceArtifact.createMany({
       data: extractedItems.map((item) => ({
-        projectId: input.projectId,
-        jobId: input.jobId,
-        userId: input.userId,
+        projectId: ctx.projectId,
+        jobId: ctx.jobId,
+        userId: ctx.userId,
         stage: DiligenceStageName.DOCUMENT_EXTRACTION,
         type: DiligenceArtifactType.EXTRACTED_TEXT,
         storageProvider: DiligenceStorageProvider.JSON_COLUMN,
-        storageKey: `db:project-document:${input.projectId}:${item.pathname}`,
+        storageKey: `db:project-document:${ctx.projectId}:${item.pathname}`,
         mimeType: "text/plain",
-        sizeBytes: item.extractedText.length,
+        sizeBytes: item.pages.reduce((sum, page) => sum + page.text.length, 0),
         checksum: null,
-        metadata: toInputJson(item),
+        metadata: toInputJson({
+          pathname: item.pathname,
+          filename: item.filename,
+          extractionMode: item.extractionMode,
+          warnings: item.warnings,
+          processingStatus: item.processingStatus,
+          processingError: item.processingError,
+          pages: item.pages,
+        }),
       })),
     });
 
     const processedCount = extractedItems.filter(
-      (item) => item.processingStatus === ProjectDocumentProcessingStatus.PROCESSED
+      (item) =>
+        item.processingStatus === ProjectDocumentProcessingStatus.PROCESSED
     ).length;
 
     return {
@@ -456,125 +481,198 @@ export class DiligenceWorker {
           pathname: item.pathname,
           filename: item.filename,
           sizeBytes: item.sizeBytes,
+          extractionMode: item.extractionMode,
           processingStatus: item.processingStatus,
           processingError: item.processingError,
-          extractionMode: item.extractionMode,
+          warnings: item.warnings,
+          pageCount: item.pages.length,
         })),
-        summary: `Processed ${processedCount}/${extractedItems.length} source document(s).`,
+        summary: `Extracted text from ${processedCount}/${extractedItems.length} source document(s).`,
       },
     };
   }
 
-  private async runLlmStage(input: {
-    stage: DiligenceStageName;
-    jobId: string;
-    projectId: string;
-    userId: string;
-    selectedProvider: ApiKeyProvider;
-    selectedModel: string;
-    fallbackProviders: ApiKeyProvider[];
-    userApiKeyId: string | null;
-  }): Promise<StageExecutionResult> {
-    if (!input.userApiKeyId) {
-      throw new Error("Missing user API key reference for diligence job.");
-    }
+  // ───────────────────────── EVIDENCE_INDEXING ─────────────────────────
 
-    const selectedKey = await UserApiKeyModel.findByIdForUser({
-      userId: input.userId,
-      userApiKeyId: input.userApiKeyId,
-    });
-    if (!selectedKey || !selectedKey.enabled) {
-      throw new Error("Selected API key is missing or disabled.");
-    }
-
-    const primaryApiKey = UserApiKeyModel.decryptApiKey(selectedKey.encryptedKey);
-    const fallbackCredentials: Array<{
-      provider: ApiKeyProvider;
-      model: string;
-      apiKey: string;
-    }> = [];
-
-    for (const provider of input.fallbackProviders) {
-      const key = await UserApiKeyModel.findForUser({
-        userId: input.userId,
-        provider,
-      });
-      if (!key || !key.enabled) {
-        continue;
-      }
-      fallbackCredentials.push({
-        provider: key.provider,
-        model: key.defaultModel ?? input.selectedModel,
-        apiKey: UserApiKeyModel.decryptApiKey(key.encryptedKey),
-      });
-    }
-
+  private async runEvidenceIndexing(
+    ctx: StageContext
+  ): Promise<StageExecutionResult> {
     const extractionArtifacts = await db.diligenceArtifact.findMany({
       where: {
-        jobId: input.jobId,
+        jobId: ctx.jobId,
         type: DiligenceArtifactType.EXTRACTED_TEXT,
+        stage: DiligenceStageName.DOCUMENT_EXTRACTION,
       },
       orderBy: { createdAt: "asc" },
+      select: { metadata: true },
+    });
+
+    await db.diligenceChunk.deleteMany({ where: { jobId: ctx.jobId } });
+
+    const records: ChunkRecord[] = [];
+    for (const artifact of extractionArtifacts) {
+      const metadata = artifact.metadata as
+        | {
+            pathname?: string;
+            filename?: string;
+            pages?: Array<{ page: number | null; text: string }>;
+          }
+        | null;
+      if (!metadata?.pathname || !metadata.filename || !metadata.pages) {
+        continue;
+      }
+      const chunks = chunkDocument({
+        documentPathname: metadata.pathname,
+        documentFilename: metadata.filename,
+        pages: metadata.pages,
+      });
+      records.push(...chunks);
+    }
+
+    if (records.length > 0) {
+      await db.diligenceChunk.createMany({
+        data: records.map((record) => ({
+          projectId: ctx.projectId,
+          jobId: ctx.jobId,
+          userId: ctx.userId,
+          documentPathname: record.documentPathname,
+          documentFilename: record.documentFilename,
+          page: record.page,
+          chunkIndex: record.chunkIndex,
+          text: record.text,
+          hash: record.hash,
+          tokenEstimate: record.tokenEstimate,
+        })),
+      });
+    }
+
+    const totalTokens = records.reduce(
+      (sum, record) => sum + record.tokenEstimate,
+      0
+    );
+    const distinctDocuments = new Set(records.map((r) => r.documentPathname));
+
+    return {
+      outputJson: {
+        items: [],
+        summary: `Indexed ${records.length} chunks across ${distinctDocuments.size} documents (~${totalTokens} tokens).`,
+        chunkCount: records.length,
+        documentCount: distinctDocuments.size,
+        approxTokens: totalTokens,
+      },
+    };
+  }
+
+  // ───────────────────────── CORROBORATION (deterministic) ─────────────────────────
+
+  private async runCorroboration(
+    ctx: StageContext
+  ): Promise<StageExecutionResult> {
+    const claims = await db.diligenceClaim.findMany({
+      where: { jobId: ctx.jobId },
       select: {
-        storageKey: true,
-        sizeBytes: true,
-        metadata: true,
+        id: true,
+        claimText: true,
+        chunkRefs: true,
+        evidenceRefs: true,
       },
     });
 
-    const priorStages = await db.diligenceStageRun.findMany({
-      where: {
-        jobId: input.jobId,
-        status: DiligenceStageStatus.COMPLETED,
-      },
-      select: {
-        stage: true,
-        outputJson: true,
-      },
-      orderBy: { updatedAt: "asc" },
+    const chunkMap = await this.loadChunkSourceMap(ctx.jobId);
+
+    const rawClaims: RawClaim[] = claims.map((claim) => {
+      const evidence = claim.evidenceRefs as Record<string, unknown> | null;
+      return {
+        claim: claim.claimText,
+        category: asNullableString(evidence?.category) ?? undefined,
+        quantitative: Boolean(evidence?.quantitative),
+        value: evidence?.value as string | number | null | undefined,
+        unit: asNullableString(evidence?.unit) ?? undefined,
+        period: asNullableString(evidence?.period) ?? undefined,
+        chunk_refs: asStringArray(claim.chunkRefs),
+      };
     });
 
-    const stagePlan = this.getStagePromptPlan(input.stage);
-
-    const llmResult = await this.llmService.invokeStructured<{
-      summary: string;
-      itemsJson: string;
-    }>({
-      stage: input.stage,
-      systemInstruction:
-        "You are a commercial due diligence specialist. Be precise, cite evidence keys, and avoid speculation.",
-      userPrompt: [
-        stagePlan.prompt,
-        "",
-        "Source documents:",
-        JSON.stringify(extractionArtifacts, null, 2),
-        "",
-        "Prior stage outputs:",
-        JSON.stringify(priorStages, null, 2),
-      ].join("\n"),
-      fields: stagePlan.fields,
-      primary: {
-        provider: input.selectedProvider,
-        model: input.selectedModel,
-        apiKey: primaryApiKey,
-      },
-      fallbacks: fallbackCredentials,
+    const corroborated = corroborateClaims({
+      claims: rawClaims,
+      chunkToDocument: chunkMap,
     });
 
-    const parsedItems = parseJsonArray<Record<string, unknown>>(
-      llmResult.parsed.itemsJson
+    let supportedCount = 0;
+    let contradictedCount = 0;
+    let inconclusiveCount = 0;
+
+    for (let index = 0; index < corroborated.length; index += 1) {
+      const claim = corroborated[index];
+      const claimRow = claims[index];
+      if (!claim || !claimRow) {
+        continue;
+      }
+      if (claim.status === "SUPPORTED") supportedCount += 1;
+      else if (claim.status === "CONTRADICTED") contradictedCount += 1;
+      else inconclusiveCount += 1;
+
+      await db.diligenceClaim.update({
+        where: { id: claimRow.id },
+        data: {
+          status: claim.status,
+          confidence: claim.confidence,
+          sourceCount: claim.sourceCount,
+          contradictions: claim.contradictedBy.length > 0
+            ? toInputJson(claim.contradictedBy)
+            : undefined,
+        },
+      });
+    }
+
+    return {
+      outputJson: {
+        items: corroborated.map((c) => ({
+          claim: c.claim,
+          status: c.status,
+          confidence: c.confidence,
+          sourceCount: c.sourceCount,
+          contradictedBy: c.contradictedBy,
+        })),
+        summary: `Corroborated ${corroborated.length} claims — supported: ${supportedCount}, contradicted: ${contradictedCount}, inconclusive: ${inconclusiveCount}.`,
+        supportedCount,
+        contradictedCount,
+        inconclusiveCount,
+      },
+    };
+  }
+
+  // ───────────────────────── LLM stages ─────────────────────────
+
+  private async runLlmStage(ctx: StageContext): Promise<StageExecutionResult> {
+    const credentials = await this.loadLlmCredentials(ctx);
+    const plan = getStagePromptPlan(ctx.stage);
+
+    const userPrompt = await this.buildStageUserPrompt(ctx, plan.needsFullChunks);
+
+    const llmResult = await this.llmService.invokeStructured<
+      Record<string, unknown>
+    >({
+      stage: ctx.stage,
+      systemInstruction: plan.systemInstruction,
+      userPrompt,
+      outputSchema: plan.outputSchema,
+      primary: credentials.primary,
+      fallbacks: credentials.fallbacks,
+    });
+
+    const items = asArray<Record<string, unknown>>(llmResult.parsed.items);
+    const summary = asString(llmResult.parsed.summary, "");
+    const evidenceGaps = asArray<Record<string, unknown>>(
+      llmResult.parsed.evidence_gaps
     );
 
-    await this.persistStageStructuredData({
-      stage: input.stage,
-      projectId: input.projectId,
-      jobId: input.jobId,
-      userId: input.userId,
-      items: parsedItems,
-      summary:
-        typeof llmResult.parsed.summary === "string"
-          ? llmResult.parsed.summary
-          : "",
+    await this.persistStageOutputs({
+      ctx,
+      summary,
+      items,
+      structured: llmResult.parsed,
+      evidenceGaps,
     });
 
     const usage = llmResult.usage ?? {};
@@ -586,8 +684,9 @@ export class DiligenceWorker {
 
     return {
       outputJson: {
-        summary: llmResult.parsed.summary,
-        items: parsedItems,
+        summary,
+        items,
+        structured: llmResult.parsed,
         raw: llmResult.rawText,
       },
       provider: llmResult.provider,
@@ -597,281 +696,623 @@ export class DiligenceWorker {
     };
   }
 
-  private getStagePromptPlan(stage: DiligenceStageName): {
-    prompt: string;
-    fields: Record<string, string>;
-  } {
-    switch (stage) {
-      case DiligenceStageName.DOCUMENT_CLASSIFICATION:
-        return {
-          prompt:
-            "Classify each document by type, diligence relevance, and confidence. Return one item per document.",
-          fields: {
-            summary: "Short paragraph summary of document classification results.",
-            itemsJson:
-              'A strict JSON array. Each item: {"id": "unique-id", "title": "document filename", "type": "financial|legal|operational|pitch|reference|other", "relevance": "high|medium|low", "confidence": 0.0-1.0, "details": "why this classification"}',
-          },
-        };
-      case DiligenceStageName.ENTITY_EXTRACTION:
-        return {
-          prompt:
-            "Extract all entities relevant for commercial diligence. Include companies (target and competitors), key people (founders, executives, board members), products, markets, revenue figures, funding amounts, and regulatory bodies. For each entity provide the kind, any quantitative data, and which document it was found in.",
-          fields: {
-            summary: "Short paragraph summary of entities found across documents.",
-            itemsJson:
-              'A strict JSON array. Each item: {"name": "entity name", "kind": "person|company|product|market|financial_metric|regulation|location|technology", "details": "role, title, revenue figure, or other context", "confidence": 0.0-1.0, "source": "document filename where found"}',
-          },
-        };
-      case DiligenceStageName.CLAIM_EXTRACTION:
-        return {
-          prompt:
-            "Extract specific, testable claims made in the documents. These are factual assertions about revenue, growth, market size, competitive position, technology capabilities, or team qualifications. For each claim, assess whether it is supported by evidence in other documents, contradicted, or inconclusive. Provide the exact quote or paraphrase and cite the source document.",
-          fields: {
-            summary: "Short paragraph summary of key claims and their verification status.",
-            itemsJson:
-              'A strict JSON array. Each item: {"claim": "the specific factual claim being made", "status": "SUPPORTED|CONTRADICTED|INCONCLUSIVE", "confidence": 0.0-1.0, "source": "document where claim was made", "evidence": "supporting or contradicting evidence from other documents", "details": "explanation of why this status was assigned"}',
-          },
-        };
-      case DiligenceStageName.RISK_EXTRACTION:
-        return {
-          prompt:
-            "Extract commercial and operational risks identified across the documents. Include market risks, financial risks, team risks, technology risks, legal/regulatory risks, and concentration risks. For each risk, explain what the risk is, what evidence supports it, how severe it could be, and what mitigation might exist.",
-          fields: {
-            summary: "Short paragraph summary of the overall risk profile.",
-            itemsJson:
-              'A strict JSON array. Each item: {"title": "short risk title", "summary": "detailed explanation of the risk, its potential impact, and any mitigating factors", "type": "RISK", "severity": "critical|high|medium|low", "confidence": 0.0-1.0, "evidenceRefs": ["document names that support this finding"], "details": "additional context and recommended actions"}',
-          },
-        };
-      case DiligenceStageName.CROSS_DOCUMENT_VALIDATION:
-        return {
-          prompt:
-            "Cross-validate claims and data points across all documents. Identify where documents agree, where they conflict, and where there are evidence gaps. Flag any numbers that don't reconcile (e.g., revenue figures that differ between pitch deck and financials).",
-          fields: {
-            summary: "Short paragraph summary of cross-document validation findings.",
-            itemsJson:
-              'A strict JSON array. Each item: {"title": "what was validated", "status": "CONFIRMED|CONFLICTING|UNVERIFIABLE", "details": "explanation of the validation result with specific references to documents and data points", "confidence": 0.0-1.0, "sources": ["document names involved"]}',
-          },
-        };
-      case DiligenceStageName.CONTRADICTION_DETECTION:
-        return {
-          prompt:
-            "Identify explicit contradictions between documents. A contradiction is when two sources make incompatible factual claims. For each contradiction, quote or closely paraphrase both statements, identify which documents they come from, and explain why they are contradictory.",
-          fields: {
-            summary: "Short paragraph summary of contradictions found.",
-            itemsJson:
-              'A strict JSON array. Each item: {"statementA": "exact quote or close paraphrase of first claim with source document name", "statementB": "exact quote or close paraphrase of contradicting claim with source document name", "explanation": "why these statements contradict each other", "confidence": 0.0-1.0, "sourceA": "document name for statement A", "sourceB": "document name for statement B"}',
-          },
-        };
-      case DiligenceStageName.EVIDENCE_GRAPH_GENERATION:
-        return {
-          prompt:
-            "Build an evidence graph connecting entities, claims, findings, and contradictions. Each node represents a key data point and edges represent relationships (supports, contradicts, relates_to).",
-          fields: {
-            summary: "Short paragraph summary of the evidence graph structure.",
-            itemsJson:
-              'A strict JSON array of edges. Each item: {"from": "source node name", "to": "target node name", "relationship": "supports|contradicts|relates_to|employs|competes_with|funds", "confidence": 0.0-1.0, "details": "context for this relationship"}',
-          },
-        };
-      case DiligenceStageName.EXECUTIVE_SUMMARY_GENERATION:
-        return {
-          prompt:
-            "Generate a comprehensive executive summary for investment decision support. Include: company overview, key metrics, team assessment, market position, major risks, unresolved questions, and a preliminary recommendation. Structure it as clear sections.",
-          fields: {
-            summary:
-              "A full executive summary (3-5 paragraphs) covering the investment thesis, key strengths, critical risks, and open questions for the investment committee.",
-            itemsJson:
-              'A strict JSON array of report sections. Each item: {"section": "section title (e.g. Company Overview, Key Metrics, Team, Market Position, Risks, Open Questions, Recommendation)", "content": "detailed section content with specific data points and evidence"}',
-          },
-        };
-      case DiligenceStageName.FINAL_REPORT_GENERATION:
-        return {
-          prompt:
-            "Generate the final due diligence report with all sections, findings, and recommendations. This should be comprehensive and ready for investment committee review.",
-          fields: {
-            summary:
-              "A comprehensive final summary (3-5 paragraphs) synthesizing all diligence findings into an actionable investment recommendation.",
-            itemsJson:
-              'A strict JSON array of report sections. Each item: {"section": "section title", "content": "detailed section content with data, evidence references, and analysis"}',
-          },
-        };
-      default:
-        return {
-          prompt: "Run the current diligence stage and return structured outputs.",
-          fields: {
-            summary: "Short paragraph summary for this stage.",
-            itemsJson:
-              "A strict JSON array. Each item should include relevant structured data.",
-          },
-        };
+  private async buildStageUserPrompt(
+    ctx: StageContext,
+    includeFullChunks: boolean
+  ): Promise<string> {
+    const plan = getStagePromptPlan(ctx.stage);
+
+    const sections: string[] = [plan.userInstruction];
+
+    if (includeFullChunks) {
+      const chunks = await this.loadChunksForPrompt(ctx);
+      sections.push("", "### Source chunks", chunks);
     }
+
+    const substrate = await this.loadSubstrateContext(ctx);
+    if (substrate) {
+      sections.push("", "### Prior diligence substrate", substrate);
+    }
+
+    return sections.join("\n");
   }
 
-  private async persistStageStructuredData(input: {
-    stage: DiligenceStageName;
-    projectId: string;
-    jobId: string;
-    userId: string;
-    items: Record<string, unknown>[];
+  private async loadChunksForPrompt(ctx: StageContext): Promise<string> {
+    const chunks = await db.diligenceChunk.findMany({
+      where: { jobId: ctx.jobId },
+      orderBy: [{ documentPathname: "asc" }, { chunkIndex: "asc" }],
+      select: {
+        id: true,
+        documentFilename: true,
+        page: true,
+        text: true,
+      },
+    });
+
+    if (chunks.length === 0) {
+      return "(no chunks available — document extraction may have produced no text)";
+    }
+
+    const lines: string[] = [];
+    let cursor = 0;
+    for (const chunk of chunks) {
+      const header = `--- chunk_id=${chunk.id} doc="${chunk.documentFilename}" page=${chunk.page ?? "n/a"} ---`;
+      const body = chunk.text;
+      const blockSize = header.length + body.length + 2;
+      if (cursor + blockSize > MAX_CHUNK_PROMPT_CHARS) {
+        lines.push(
+          `\n[truncated ${chunks.length - lines.length / 2} additional chunks to stay within prompt budget]`
+        );
+        break;
+      }
+      lines.push(header, body);
+      cursor += blockSize;
+    }
+    return lines.join("\n");
+  }
+
+  private async loadSubstrateContext(ctx: StageContext): Promise<string | null> {
+    const stagesNeedingSubstrate: DiligenceStageName[] = [
+      DiligenceStageName.Q1_IDENTITY_AND_OWNERSHIP,
+      DiligenceStageName.Q2_PRODUCT_AND_TECHNOLOGY,
+      DiligenceStageName.Q3_MARKET_AND_TRACTION,
+      DiligenceStageName.Q4_EXECUTION_CAPABILITY,
+      DiligenceStageName.Q5_BUSINESS_MODEL_VIABILITY,
+      DiligenceStageName.Q6_RISK_ANALYSIS,
+      DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY,
+      DiligenceStageName.OPEN_QUESTIONS,
+      DiligenceStageName.EXECUTIVE_SUMMARY,
+      DiligenceStageName.FINAL_REPORT,
+    ];
+
+    if (!stagesNeedingSubstrate.includes(ctx.stage)) {
+      return null;
+    }
+
+    const [entities, claims, gaps, prevAnswers] = await Promise.all([
+      db.diligenceEntity.findMany({
+        where: { jobId: ctx.jobId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          name: true,
+          kind: true,
+          confidence: true,
+          sourceCount: true,
+          metadata: true,
+        },
+        take: 200,
+      }),
+      db.diligenceClaim.findMany({
+        where: { jobId: ctx.jobId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          claimText: true,
+          status: true,
+          confidence: true,
+          sourceCount: true,
+          evidenceRefs: true,
+        },
+        take: 200,
+      }),
+      db.diligenceEvidenceGap.findMany({
+        where: { jobId: ctx.jobId },
+        select: { question: true, title: true, severity: true },
+      }),
+      db.diligenceQuestionAnswer.findMany({
+        where: { jobId: ctx.jobId },
+        select: { question: true, summary: true, confidence: true },
+      }),
+    ]);
+
+    const blocks: string[] = [];
+
+    if (entities.length > 0) {
+      blocks.push(
+        "Entities (curated, deduplicated):",
+        ...entities.slice(0, 50).map(
+          (entity) =>
+            `- [${entity.kind}] ${entity.name}` +
+            (entity.confidence != null ? ` (conf=${entity.confidence.toFixed(2)})` : "")
+        )
+      );
+    }
+
+    if (claims.length > 0) {
+      blocks.push(
+        "",
+        "Claims (with corroboration status):",
+        ...claims.slice(0, 80).map(
+          (claim) =>
+            `- [${claim.status}, sources=${claim.sourceCount}, conf=${claim.confidence?.toFixed(2) ?? "n/a"}] ${claim.claimText}`
+        )
+      );
+    }
+
+    if (gaps.length > 0) {
+      blocks.push(
+        "",
+        "Already-identified evidence gaps:",
+        ...gaps.map((gap) => `- [${gap.question}, ${gap.severity}] ${gap.title}`)
+      );
+    }
+
+    if (prevAnswers.length > 0) {
+      blocks.push(
+        "",
+        "Already-answered questions (summaries only):",
+        ...prevAnswers.map(
+          (answer) =>
+            `- ${answer.question} (conf=${answer.confidence?.toFixed(2) ?? "n/a"}): ${answer.summary.slice(0, 240)}`
+        )
+      );
+    }
+
+    return blocks.length > 0 ? blocks.join("\n") : null;
+  }
+
+  // ───────────────────────── Persistence per stage ─────────────────────────
+
+  private async persistStageOutputs(input: {
+    ctx: StageContext;
     summary: string;
+    items: Record<string, unknown>[];
+    structured: Record<string, unknown>;
+    evidenceGaps: Record<string, unknown>[];
   }): Promise<void> {
-    if (input.stage === DiligenceStageName.ENTITY_EXTRACTION) {
-      await db.diligenceEntity.deleteMany({ where: { jobId: input.jobId } });
-      if (input.items.length > 0) {
+    const { ctx, summary, items, structured, evidenceGaps } = input;
+    const chunkMap = await this.loadChunkSourceMap(ctx.jobId);
+
+    if (ctx.stage === DiligenceStageName.ENTITY_EXTRACTION) {
+      await db.diligenceEntity.deleteMany({ where: { jobId: ctx.jobId } });
+      const dedupedEntities = mergeEntities(items, chunkMap);
+      if (dedupedEntities.length > 0) {
         await db.diligenceEntity.createMany({
-          data: input.items.map((item) => ({
-            projectId: input.projectId,
-            jobId: input.jobId,
-            userId: input.userId,
-            name:
-              typeof item.name === "string"
-                ? item.name
-                : typeof item.title === "string"
-                  ? item.title
-                  : "Unnamed entity",
-            kind:
-              typeof item.kind === "string"
-                ? item.kind
-                : typeof item.type === "string"
-                  ? item.type
-                  : "unknown",
-            confidence:
-              typeof item.confidence === "number" ? item.confidence : null,
-            metadata: toInputJson(item),
+          data: dedupedEntities.map((entity) => ({
+            projectId: ctx.projectId,
+            jobId: ctx.jobId,
+            userId: ctx.userId,
+            name: entity.name,
+            kind: entity.kind,
+            confidence: entity.confidence,
+            sourceCount: entity.sourceCount,
+            chunkRefs: toInputJson(entity.chunkRefs),
+            metadata: toInputJson(entity.metadata),
           })),
         });
       }
-      return;
-    }
-
-    if (input.stage === DiligenceStageName.CLAIM_EXTRACTION) {
-      await db.diligenceClaim.deleteMany({ where: { jobId: input.jobId } });
-      if (input.items.length > 0) {
+    } else if (ctx.stage === DiligenceStageName.CLAIM_EXTRACTION) {
+      await db.diligenceClaim.deleteMany({ where: { jobId: ctx.jobId } });
+      const claimRows = items.map((item) => buildClaimRow(item, chunkMap));
+      if (claimRows.length > 0) {
         await db.diligenceClaim.createMany({
-          data: input.items.map((item) => ({
-            projectId: input.projectId,
-            jobId: input.jobId,
-            userId: input.userId,
-            claimText:
-              typeof item.claim === "string"
-                ? item.claim
-                : typeof item.claimText === "string"
-                  ? item.claimText
-                  : typeof item.title === "string"
-                    ? item.title
-                    : "Unnamed claim",
-            status:
-              typeof item.status === "string" &&
-              ["SUPPORTED", "CONTRADICTED", "INCONCLUSIVE"].includes(item.status)
-                ? (item.status as "SUPPORTED" | "CONTRADICTED" | "INCONCLUSIVE")
-                : undefined,
-            confidence:
-              typeof item.confidence === "number" ? item.confidence : null,
-            evidenceRefs: item.evidenceRefs
-              ? toInputJson(item.evidenceRefs)
-              : item.evidence
-                ? toInputJson({ evidence: item.evidence, source: item.source })
-                : undefined,
-            contradictions: item.contradictions
-              ? toInputJson(item.contradictions)
-              : undefined,
+          data: claimRows.map((row) => ({
+            projectId: ctx.projectId,
+            jobId: ctx.jobId,
+            userId: ctx.userId,
+            claimText: row.claimText,
+            status: undefined, // status is computed in CORROBORATION
+            confidence: null,
+            sourceCount: row.sourceCount,
+            chunkRefs: toInputJson(row.chunkRefs),
+            evidenceRefs: toInputJson(row.evidence),
           })),
         });
       }
-      return;
-    }
-
-    if (input.stage === DiligenceStageName.RISK_EXTRACTION) {
+    } else if (ctx.stage === DiligenceStageName.Q6_RISK_ANALYSIS) {
       await db.diligenceFinding.deleteMany({
-        where: { jobId: input.jobId, type: "RISK" },
+        where: { jobId: ctx.jobId, type: "RISK" },
       });
-      if (input.items.length > 0) {
+      const risks = asArray<Record<string, unknown>>(structured.risks);
+      const sourceItems = risks.length > 0 ? risks : items;
+      if (sourceItems.length > 0) {
         await db.diligenceFinding.createMany({
-          data: input.items.map((item) => ({
-            projectId: input.projectId,
-            jobId: input.jobId,
-            userId: input.userId,
-            type: "RISK",
-            title:
-              typeof item.title === "string"
-                ? item.title
-                : "Commercial risk",
-            summary:
-              typeof item.summary === "string"
-                ? item.summary
-                : typeof item.details === "string"
-                  ? item.details
-                  : "No summary provided.",
-            confidence:
-              typeof item.confidence === "number" ? item.confidence : null,
-            evidenceRefs: item.evidenceRefs
-              ? toInputJson(item.evidenceRefs)
-              : undefined,
-            metadata: toInputJson(item),
-          })),
+          data: sourceItems.map((item) => buildFindingRow(item, chunkMap, ctx)),
         });
       }
-      return;
-    }
-
-    if (input.stage === DiligenceStageName.CONTRADICTION_DETECTION) {
-      await db.diligenceContradiction.deleteMany({ where: { jobId: input.jobId } });
-      if (input.items.length > 0) {
+      await this.persistQuestionAnswer(ctx, structured, chunkMap);
+    } else if (ctx.stage === DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY) {
+      await db.diligenceContradiction.deleteMany({
+        where: { jobId: ctx.jobId },
+      });
+      const contradictions = asArray<Record<string, unknown>>(
+        structured.contradictions
+      );
+      if (contradictions.length > 0) {
         await db.diligenceContradiction.createMany({
-          data: input.items.map((item) => ({
-            projectId: input.projectId,
-            jobId: input.jobId,
-            userId: input.userId,
-            statementA:
-              typeof item.statementA === "string"
-                ? item.statementA
-                : typeof item.statement_a === "string"
-                  ? item.statement_a
-                  : "Unspecified statement A",
-            statementB:
-              typeof item.statementB === "string"
-                ? item.statementB
-                : typeof item.statement_b === "string"
-                  ? item.statement_b
-                  : "Unspecified statement B",
-            confidence:
-              typeof item.confidence === "number" ? item.confidence : null,
-            evidenceRefs: item.evidenceRefs
-              ? toInputJson(item.evidenceRefs)
-              : item.explanation
-                ? toInputJson({
-                    explanation: item.explanation,
-                    sourceA: item.sourceA,
-                    sourceB: item.sourceB,
-                  })
-                : undefined,
-          })),
+          data: contradictions.map((item) =>
+            buildContradictionRow(item, chunkMap, ctx)
+          ),
         });
       }
-      return;
-    }
-
-    if (
-      input.stage === DiligenceStageName.FINAL_REPORT_GENERATION ||
-      input.stage === DiligenceStageName.EXECUTIVE_SUMMARY_GENERATION
+      await this.persistQuestionAnswer(ctx, structured, chunkMap);
+    } else if (STAGE_TO_QUESTION[ctx.stage]) {
+      await this.persistQuestionAnswer(ctx, structured, chunkMap);
+    } else if (ctx.stage === DiligenceStageName.OPEN_QUESTIONS) {
+      await db.diligenceOpenQuestion.deleteMany({ where: { jobId: ctx.jobId } });
+      if (items.length > 0) {
+        await db.diligenceOpenQuestion.createMany({
+          data: items.map((item) => buildOpenQuestionRow(item, ctx)),
+        });
+      }
+    } else if (
+      ctx.stage === DiligenceStageName.EXECUTIVE_SUMMARY ||
+      ctx.stage === DiligenceStageName.FINAL_REPORT
     ) {
       await db.diligenceArtifact.create({
         data: {
-          projectId: input.projectId,
-          jobId: input.jobId,
-          userId: input.userId,
-          stage: input.stage,
+          projectId: ctx.projectId,
+          jobId: ctx.jobId,
+          userId: ctx.userId,
+          stage: ctx.stage,
           type: DiligenceArtifactType.GENERATED_REPORT,
           storageProvider: DiligenceStorageProvider.JSON_COLUMN,
-          storageKey: `db:diligence-report:${input.jobId}:${input.stage}`,
+          storageKey: `db:diligence-report:${ctx.jobId}:${ctx.stage}`,
           mimeType: "application/json",
           sizeBytes: null,
           checksum: null,
-          metadata: toInputJson({
-            summary: input.summary,
-            items: input.items,
-          }),
+          metadata: toInputJson({ summary, items, structured }),
         },
       });
     }
+
+    // Evidence gaps are stage-agnostic — persist whenever the LLM returns them.
+    if (evidenceGaps.length > 0) {
+      const question =
+        STAGE_TO_QUESTION[ctx.stage] ??
+        (("Q7_EVIDENCE" as const) as DiligenceCoreQuestion);
+      await db.diligenceEvidenceGap.deleteMany({
+        where: { jobId: ctx.jobId, question },
+      });
+      await db.diligenceEvidenceGap.createMany({
+        data: evidenceGaps.map((gap) => ({
+          projectId: ctx.projectId,
+          jobId: ctx.jobId,
+          userId: ctx.userId,
+          question,
+          title: asString(gap.title, "Evidence gap"),
+          description: asString(gap.description, ""),
+          severity: normalizeSeverity(gap.severity),
+          suggestedSource:
+            asNullableString(gap.suggested_source ?? gap.suggestedSource) ??
+            null,
+        })),
+      });
+    }
   }
+
+  private async persistQuestionAnswer(
+    ctx: StageContext,
+    structured: Record<string, unknown>,
+    chunkMap: ChunkSourceMap
+  ): Promise<void> {
+    const question = STAGE_TO_QUESTION[ctx.stage];
+    if (!question) {
+      return;
+    }
+    const summary = asString(structured.summary, "");
+    const confidence = asNumber(structured.confidence);
+    const chunkRefs = collectChunkRefsFromStructured(structured);
+    const distinctDocuments = new Set<string>();
+    for (const chunkId of chunkRefs) {
+      const document = chunkMap.get(chunkId);
+      if (document) {
+        distinctDocuments.add(document);
+      }
+    }
+
+    await db.diligenceQuestionAnswer.upsert({
+      where: { jobId_question: { jobId: ctx.jobId, question } },
+      create: {
+        projectId: ctx.projectId,
+        jobId: ctx.jobId,
+        userId: ctx.userId,
+        question,
+        summary,
+        structured: toInputJson(structured),
+        confidence,
+        sourceCount: distinctDocuments.size,
+        chunkRefs: toInputJson(chunkRefs),
+      },
+      update: {
+        summary,
+        structured: toInputJson(structured),
+        confidence,
+        sourceCount: distinctDocuments.size,
+        chunkRefs: toInputJson(chunkRefs),
+      },
+    });
+  }
+
+  // ───────────────────────── Credential helpers ─────────────────────────
+
+  private async loadLlmCredentials(ctx: StageContext): Promise<LlmCredentials> {
+    if (!ctx.userApiKeyId) {
+      throw new Error("Missing user API key reference for diligence job.");
+    }
+    const selectedKey = await UserApiKeyModel.findByIdForUser({
+      userId: ctx.userId,
+      userApiKeyId: ctx.userApiKeyId,
+    });
+    if (!selectedKey || !selectedKey.enabled) {
+      throw new Error("Selected API key is missing or disabled.");
+    }
+    const primaryApiKey = UserApiKeyModel.decryptApiKey(selectedKey.encryptedKey);
+    const fallbacks: LlmCredentials["fallbacks"] = [];
+    for (const provider of ctx.fallbackProviders) {
+      const key = await UserApiKeyModel.findForUser({
+        userId: ctx.userId,
+        provider,
+      });
+      if (!key || !key.enabled) {
+        continue;
+      }
+      fallbacks.push({
+        provider: key.provider,
+        model: key.defaultModel ?? ctx.selectedModel,
+        apiKey: UserApiKeyModel.decryptApiKey(key.encryptedKey),
+      });
+    }
+    return {
+      primary: {
+        provider: ctx.selectedProvider,
+        model: ctx.selectedModel,
+        apiKey: primaryApiKey,
+      },
+      fallbacks,
+    };
+  }
+
+  private async loadChunkSourceMap(jobId: string): Promise<ChunkSourceMap> {
+    const chunks = await db.diligenceChunk.findMany({
+      where: { jobId },
+      select: { id: true, documentPathname: true },
+    });
+    const map: ChunkSourceMap = new Map();
+    for (const chunk of chunks) {
+      map.set(chunk.id, chunk.documentPathname);
+    }
+    return map;
+  }
+}
+
+// ───────────────────────── Pure helpers ─────────────────────────
+
+function mergeEntities(
+  items: Record<string, unknown>[],
+  chunkMap: ChunkSourceMap
+): Array<{
+  name: string;
+  kind: string;
+  confidence: number | null;
+  sourceCount: number;
+  chunkRefs: string[];
+  metadata: Record<string, unknown>;
+}> {
+  const merged = new Map<
+    string,
+    {
+      name: string;
+      kind: string;
+      confidence: number | null;
+      chunkRefs: Set<string>;
+      sourceDocs: Set<string>;
+      metadata: Record<string, unknown>;
+    }
+  >();
+
+  for (const item of items) {
+    const name = asString(item.name);
+    if (!name.trim()) {
+      continue;
+    }
+    const kind = asString(item.kind ?? item.type, "unknown");
+    const key = `${kind.toLowerCase()}::${name.trim().toLowerCase()}`;
+    const chunkRefs = asStringArray(item.chunk_refs ?? item.chunkRefs);
+    const docs = chunkRefs
+      .map((id) => chunkMap.get(id))
+      .filter((doc): doc is string => Boolean(doc));
+
+    const existing = merged.get(key);
+    if (existing) {
+      for (const ref of chunkRefs) existing.chunkRefs.add(ref);
+      for (const doc of docs) existing.sourceDocs.add(doc);
+      const c = asNumber(item.confidence);
+      if (c !== null && (existing.confidence === null || c > existing.confidence)) {
+        existing.confidence = c;
+      }
+    } else {
+      merged.set(key, {
+        name: name.trim(),
+        kind,
+        confidence: asNumber(item.confidence),
+        chunkRefs: new Set(chunkRefs),
+        sourceDocs: new Set(docs),
+        metadata: item,
+      });
+    }
+  }
+
+  return Array.from(merged.values()).map((entry) => ({
+    name: entry.name,
+    kind: entry.kind,
+    confidence: entry.confidence,
+    sourceCount: entry.sourceDocs.size,
+    chunkRefs: Array.from(entry.chunkRefs),
+    metadata: entry.metadata,
+  }));
+}
+
+function buildClaimRow(
+  item: Record<string, unknown>,
+  chunkMap: ChunkSourceMap
+): {
+  claimText: string;
+  chunkRefs: string[];
+  sourceCount: number;
+  evidence: Record<string, unknown>;
+} {
+  const chunkRefs = asStringArray(item.chunk_refs ?? item.chunkRefs);
+  const distinctDocs = new Set<string>();
+  for (const ref of chunkRefs) {
+    const doc = chunkMap.get(ref);
+    if (doc) distinctDocs.add(doc);
+  }
+  return {
+    claimText:
+      asString(item.claim) ||
+      asString(item.claimText) ||
+      asString(item.title) ||
+      "Unnamed claim",
+    chunkRefs,
+    sourceCount: distinctDocs.size,
+    evidence: {
+      category: item.category ?? null,
+      quantitative: Boolean(item.quantitative),
+      value: item.value ?? null,
+      unit: item.unit ?? null,
+      period: item.period ?? null,
+      source: item.source ?? null,
+      raw: item,
+    },
+  };
+}
+
+function buildFindingRow(
+  item: Record<string, unknown>,
+  chunkMap: ChunkSourceMap,
+  ctx: StageContext
+): Prisma.DiligenceFindingCreateManyInput {
+  const chunkRefs = asStringArray(item.chunk_refs ?? item.chunkRefs);
+  const distinctDocs = new Set<string>();
+  for (const ref of chunkRefs) {
+    const doc = chunkMap.get(ref);
+    if (doc) distinctDocs.add(doc);
+  }
+  return {
+    projectId: ctx.projectId,
+    jobId: ctx.jobId,
+    userId: ctx.userId,
+    type: "RISK",
+    title: asString(item.title, asString(item.category, "Risk")),
+    summary:
+      asString(item.description) ||
+      asString(item.summary) ||
+      asString(item.details) ||
+      "No description provided.",
+    severity: normalizeSeverity(item.severity),
+    confidence: asNumber(item.confidence),
+    sourceCount: distinctDocs.size,
+    chunkRefs: toInputJson(chunkRefs),
+    evidenceRefs: toInputJson({
+      category: item.category ?? null,
+      evidence_strength: item.evidence_strength ?? null,
+      mitigation_disclosed: item.mitigation_disclosed ?? null,
+    }),
+    metadata: toInputJson(item),
+  };
+}
+
+function buildContradictionRow(
+  item: Record<string, unknown>,
+  chunkMap: ChunkSourceMap,
+  ctx: StageContext
+): Prisma.DiligenceContradictionCreateManyInput {
+  const refsA = asStringArray(item.chunk_refs_a ?? item.chunkRefsA);
+  const refsB = asStringArray(item.chunk_refs_b ?? item.chunkRefsB);
+  const allRefs = [...refsA, ...refsB];
+  return {
+    projectId: ctx.projectId,
+    jobId: ctx.jobId,
+    userId: ctx.userId,
+    statementA: asString(item.statement_a ?? item.statementA, "Unspecified statement A"),
+    statementB: asString(item.statement_b ?? item.statementB, "Unspecified statement B"),
+    severity: normalizeSeverity(item.severity),
+    confidence: asNumber(item.confidence),
+    chunkRefs: toInputJson(allRefs),
+    evidenceRefs: toInputJson({
+      explanation: item.explanation ?? null,
+      sources_a: refsA.map((id) => chunkMap.get(id) ?? id),
+      sources_b: refsB.map((id) => chunkMap.get(id) ?? id),
+    }),
+  };
+}
+
+function buildOpenQuestionRow(
+  item: Record<string, unknown>,
+  ctx: StageContext
+): Prisma.DiligenceOpenQuestionCreateManyInput {
+  const category = normalizeQuestionCategory(item.category);
+  return {
+    projectId: ctx.projectId,
+    jobId: ctx.jobId,
+    userId: ctx.userId,
+    category,
+    question: asString(item.question, "Unspecified question"),
+    rationale: asString(item.rationale, ""),
+    priority: normalizePriority(item.priority),
+    resolvedBy:
+      asNullableString(item.resolved_by) ?? asNullableString(item.resolvedBy),
+    chunkRefs: toInputJson(asStringArray(item.chunk_refs ?? item.chunkRefs)),
+  };
+}
+
+function collectChunkRefsFromStructured(
+  structured: Record<string, unknown>
+): string[] {
+  const refs = new Set<string>();
+  const overall = structured.chunk_refs_overall ?? structured.chunkRefsOverall;
+  for (const ref of asStringArray(overall)) {
+    refs.add(ref);
+  }
+  visitForChunkRefs(structured, refs);
+  return Array.from(refs);
+}
+
+function visitForChunkRefs(value: unknown, sink: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) visitForChunkRefs(entry, sink);
+    return;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const refs = record.chunk_refs ?? record.chunkRefs;
+    for (const ref of asStringArray(refs)) sink.add(ref);
+    for (const child of Object.values(record)) visitForChunkRefs(child, sink);
+  }
+}
+
+function normalizeSeverity(value: unknown): string {
+  const normalized = asString(value, "").toLowerCase();
+  const accepted = new Set([
+    "blocker",
+    "critical",
+    "high",
+    "medium",
+    "low",
+    "info",
+  ]);
+  return accepted.has(normalized) ? normalized : "medium";
+}
+
+function normalizePriority(value: unknown): string {
+  const normalized = asString(value, "").toLowerCase();
+  const accepted = new Set(["blocker", "high", "medium", "low"]);
+  return accepted.has(normalized) ? normalized : "medium";
+}
+
+function normalizeQuestionCategory(value: unknown): DiligenceCoreQuestion {
+  const accepted = new Set<DiligenceCoreQuestion>([
+    "Q1_IDENTITY",
+    "Q2_PRODUCT",
+    "Q3_MARKET",
+    "Q4_EXECUTION",
+    "Q5_BUSINESS_MODEL",
+    "Q6_RISKS",
+    "Q7_EVIDENCE",
+    "Q8_FAILURE_MODES",
+  ]);
+  const normalized = asString(value, "").toUpperCase();
+  return accepted.has(normalized as DiligenceCoreQuestion)
+    ? (normalized as DiligenceCoreQuestion)
+    : "Q7_EVIDENCE";
 }

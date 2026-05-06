@@ -29,7 +29,7 @@ const mockLabels = {
 const baseArtifact = {
   id: "art-1",
   type: "GENERATED_REPORT",
-  stage: "FINAL_REPORT_GENERATION",
+  stage: "FINAL_REPORT",
   storageProvider: "VERCEL_BLOB",
   storageKey: "reports/art-1.pdf",
   mimeType: "application/pdf",

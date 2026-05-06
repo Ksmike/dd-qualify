@@ -16,6 +16,10 @@ model Project {
     diligenceClaims DiligenceClaim[]
     diligenceEntities DiligenceEntity[]
     diligenceContradictions DiligenceContradiction[]
+    diligenceChunks DiligenceChunk[]
+    diligenceQuestionAnswers DiligenceQuestionAnswer[]
+    diligenceEvidenceGaps DiligenceEvidenceGap[]
+    diligenceOpenQuestions DiligenceOpenQuestion[]
 
     @@index([userId])
 }

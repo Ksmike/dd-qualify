@@ -70,15 +70,15 @@ export default function HomePage() {
           aria-hidden
         />
 
-        <div className="relative mx-auto max-w-6xl px-6 pb-32 pt-24 text-center">
+        <div className="relative mx-auto max-w-6xl px-4 pb-20 pt-16 text-center sm:px-6 sm:pb-32 sm:pt-24">
           {/* Badge */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-white/60 backdrop-blur-sm">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/60 backdrop-blur-sm sm:mb-8 sm:px-4">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
             {m.hero.badge}
           </div>
 
           {/* H1 */}
-          <h1 className="text-5xl font-bold leading-[1.1] tracking-tight text-white sm:text-6xl lg:text-[4.5rem]">
+          <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-white sm:text-5xl sm:leading-[1.1] lg:text-[4.5rem]">
             Every claim.
             <br />
             Every source.
@@ -89,16 +89,16 @@ export default function HomePage() {
           </h1>
 
           {/* Sub-copy */}
-          <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg">
+          <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-white/50 sm:mt-8 sm:text-base lg:text-lg">
             {m.hero.description}
           </p>
 
           {/* Segment pills */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:mt-8">
             {m.hero.segmentLabels.map((label) => (
               <span
                 key={label}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/45"
+                className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/45 sm:px-3 sm:text-xs"
               >
                 {label}
               </span>
@@ -106,17 +106,17 @@ export default function HomePage() {
           </div>
 
           {/* CTAs */}
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <div className="mt-8 flex flex-col items-center gap-3 sm:mt-10 sm:flex-row sm:justify-center sm:gap-4">
             <Link
               href="/register"
-              className="flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-opacity hover:opacity-90"
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-opacity hover:opacity-90 sm:w-auto"
             >
               {m.hero.trialCta}
               <FiArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/login"
-              className="rounded-md border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white/70 backdrop-blur-sm transition-colors hover:bg-white/10"
+              className="w-full rounded-md border border-white/15 bg-white/5 px-6 py-3 text-center text-sm font-semibold text-white/70 backdrop-blur-sm transition-colors hover:bg-white/10 sm:w-auto"
             >
               {m.hero.demoCta}
             </Link>
@@ -126,14 +126,14 @@ export default function HomePage() {
 
       {/* ── Metrics strip ─────────────────────────────────────────── */}
       <section className="border-y border-white/5 bg-[#0f0e0d]">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <div className="grid gap-10 sm:grid-cols-3">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-10">
             {m.metrics.map((metric, i) => (
               <div
                 key={metric.label}
-                className={`text-center ${i > 0 ? "sm:border-l sm:border-white/8" : ""}`}
+                className={`text-center ${i > 0 ? "border-t border-white/8 pt-8 sm:border-l sm:border-t-0 sm:pt-0" : ""}`}
               >
-                <p className="text-4xl font-bold tracking-tight text-white">
+                <p className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                   {metric.value}
                 </p>
                 <p className="mt-2 text-sm text-white/40">{metric.label}</p>
@@ -147,13 +147,13 @@ export default function HomePage() {
       <div className="h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
       {/* ── Workflow ──────────────────────────────────────────────── */}
-      <section id="workflow" className="bg-content1 py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="mb-16">
+      <section id="workflow" className="bg-content1 py-16 sm:py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-10 sm:mb-16">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary">
               The process
             </p>
-            <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
+            <h2 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl lg:text-4xl">
               {m.workflow.heading}
             </h2>
           </div>
@@ -188,15 +188,15 @@ export default function HomePage() {
       </section>
 
       {/* ── Coverage ──────────────────────────────────────────────── */}
-      <section id="coverage" className="bg-background py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="grid gap-16 md:grid-cols-2 md:items-start">
+      <section id="coverage" className="bg-background py-16 sm:py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid gap-10 md:grid-cols-2 md:items-start md:gap-16">
             {/* Left: feature list */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
                 Intelligence
               </p>
-              <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
+              <h2 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl lg:text-4xl">
                 {m.coverage.heading}
               </h2>
               <p className="mt-4 text-foreground/60">{m.coverage.description}</p>
@@ -240,18 +240,18 @@ export default function HomePage() {
       </section>
 
       {/* ── Taxonomy ──────────────────────────────────────────────── */}
-      <section className="border-t border-divider bg-content1 py-24">
-        <div className="mx-auto max-w-6xl px-6">
+      <section className="border-t border-divider bg-content1 py-16 sm:py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">
             Classification
           </p>
-          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
+          <h2 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl lg:text-4xl">
             {m.taxonomy.heading}
           </h2>
-          <p className="mt-4 max-w-2xl text-foreground/60">
+          <p className="mt-4 max-w-2xl text-sm text-foreground/60 sm:text-base">
             {m.taxonomy.description}
           </p>
-          <div className="mt-10 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-2 sm:mt-10 sm:gap-3">
             {m.taxonomy.items.map((label) => {
               const s = TAXONOMY_STYLES[label] ?? {
                 bg: "bg-content2",
@@ -273,7 +273,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Final CTA ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#0f0e0d] py-28 text-center">
+      <section className="relative overflow-hidden bg-[#0f0e0d] py-16 text-center sm:py-28">
         <div className="pointer-events-none absolute inset-0" aria-hidden>
           <div className="absolute left-1/2 top-1/2 h-[400px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/15 blur-[120px]" />
         </div>
@@ -286,29 +286,29 @@ export default function HomePage() {
           }}
           aria-hidden
         />
-        <div className="relative mx-auto max-w-2xl px-6">
-          <h2 className="text-4xl font-bold text-white sm:text-5xl">
+        <div className="relative mx-auto max-w-2xl px-4 sm:px-6">
+          <h2 className="text-2xl font-bold text-white sm:text-4xl lg:text-5xl">
             {m.cta.heading}
           </h2>
-          <p className="mx-auto mt-5 max-w-lg text-white/50">
+          <p className="mx-auto mt-4 max-w-lg text-sm text-white/50 sm:mt-5 sm:text-base">
             {m.cta.description}
           </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <div className="mt-8 flex flex-col items-center gap-3 sm:mt-10 sm:flex-row sm:justify-center sm:gap-4">
             <Link
               href="/register"
-              className="flex items-center gap-2 rounded-md bg-primary px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-opacity hover:opacity-90"
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-opacity hover:opacity-90 sm:w-auto"
             >
               {m.cta.createWorkspaceCta}
               <FiArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="mailto:hello@ddqualify.com"
-              className="rounded-md border border-white/15 bg-white/5 px-7 py-3.5 text-sm font-semibold text-white/70 backdrop-blur-sm transition-colors hover:bg-white/10"
+              className="w-full rounded-md border border-white/15 bg-white/5 px-7 py-3.5 text-center text-sm font-semibold text-white/70 backdrop-blur-sm transition-colors hover:bg-white/10 sm:w-auto"
             >
               {m.cta.contactSalesCta}
             </a>
           </div>
-          <p className="mt-10 text-xs text-white/25">{m.cta.footnote}</p>
+          <p className="mt-8 text-xs text-white/25 sm:mt-10">{m.cta.footnote}</p>
         </div>
       </section>
     </div>

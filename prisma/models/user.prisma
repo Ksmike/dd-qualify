@@ -23,4 +23,8 @@ model User {
     diligenceClaims DiligenceClaim[]
     diligenceEntities DiligenceEntity[]
     diligenceContradictions DiligenceContradiction[]
+    diligenceChunks DiligenceChunk[]
+    diligenceQuestionAnswers DiligenceQuestionAnswer[]
+    diligenceEvidenceGaps DiligenceEvidenceGap[]
+    diligenceOpenQuestions DiligenceOpenQuestion[]
 }

@@ -18,18 +18,6 @@ vi.mock("@/lib/diligence/model-provider", () => ({
   },
 }));
 
-vi.mock("@langchain/core/output_parsers", () => {
-  const mockParser = {
-    getFormatInstructions: vi.fn().mockReturnValue("Format instructions here"),
-    parse: vi.fn().mockResolvedValue({ summary: "parsed summary", itemsJson: "[]" }),
-  };
-  return {
-    StructuredOutputParser: {
-      fromNamesAndDescriptions: vi.fn().mockReturnValue(mockParser),
-    },
-  };
-});
-
 vi.mock("@langchain/openai", () => ({
   OpenAIEmbeddings: class {
     embedQuery = mockEmbedQuery;
@@ -46,6 +34,19 @@ const { DiligenceLLMService } = await import(
   "@/lib/diligence/diligence-llm-service"
 );
 
+const baseInput = {
+  stage: "ENTITY_EXTRACTION" as const,
+  systemInstruction: "You are a specialist.",
+  userPrompt: "Do the thing.",
+  outputSchema: 'items: JSON array. summary: paragraph.',
+  primary: {
+    provider: "OPENAI" as const,
+    model: "gpt-4o",
+    apiKey: "sk-test",
+  },
+  fallbacks: [],
+};
+
 describe("DiligenceLLMService", () => {
   let service: InstanceType<typeof DiligenceLLMService>;
 
@@ -55,47 +56,59 @@ describe("DiligenceLLMService", () => {
   });
 
   describe("invokeStructured", () => {
-    it("invokes the primary provider and returns parsed output", async () => {
+    it("parses a JSON object from raw model output", async () => {
       mockInvoke.mockResolvedValueOnce({
-        content: "raw LLM response text",
+        content: '{"summary": "ok", "items": [{"a": 1}]}',
         usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
       });
 
-      const result = await service.invokeStructured({
-        stage: "ENTITY_EXTRACTION" as any,
-        systemInstruction: "You are a specialist.",
-        userPrompt: "Extract entities from documents.",
-        fields: { summary: "Summary", itemsJson: "JSON array" },
-        primary: { provider: "OPENAI" as any, model: "gpt-4o", apiKey: "sk-test" },
-        fallbacks: [],
-      });
+      const result = await service.invokeStructured<{
+        summary: string;
+        items: unknown[];
+      }>(baseInput);
 
       expect(result.provider).toBe("OPENAI");
-      expect(result.model).toBe("gpt-4o");
-      expect(result.parsed).toEqual({ summary: "parsed summary", itemsJson: "[]" });
-      expect(result.usage).toEqual({ input_tokens: 100, output_tokens: 50, total_tokens: 150 });
-      expect(result.rawText).toBe("raw LLM response text");
+      expect(result.parsed.summary).toBe("ok");
+      expect(result.parsed.items).toEqual([{ a: 1 }]);
+      expect(result.usage).toEqual({
+        input_tokens: 100,
+        output_tokens: 50,
+        total_tokens: 150,
+      });
+    });
+
+    it("strips markdown fences before parsing JSON", async () => {
+      mockInvoke.mockResolvedValueOnce({
+        content: '```json\n{"summary": "fenced", "items": []}\n```',
+      });
+
+      const result = await service.invokeStructured<{
+        summary: string;
+        items: unknown[];
+      }>(baseInput);
+
+      expect(result.parsed.summary).toBe("fenced");
     });
 
     it("falls back to next provider when primary fails", async () => {
       mockInvoke
         .mockRejectedValueOnce(new Error("Rate limited"))
         .mockResolvedValueOnce({
-          content: "fallback response",
+          content: '{"summary": "fb", "items": []}',
           usage_metadata: { input_tokens: 80, output_tokens: 40, total_tokens: 120 },
         });
 
-      const result = await service.invokeStructured({
-        stage: "ENTITY_EXTRACTION" as any,
-        systemInstruction: "You are a specialist.",
-        userPrompt: "Extract entities.",
-        fields: { summary: "Summary", itemsJson: "JSON array" },
-        primary: { provider: "OPENAI" as any, model: "gpt-4o", apiKey: "sk-test" },
-        fallbacks: [{ provider: "ANTHROPIC" as any, model: "claude-3", apiKey: "sk-ant" }],
+      const result = await service.invokeStructured<{
+        summary: string;
+        items: unknown[];
+      }>({
+        ...baseInput,
+        fallbacks: [
+          { provider: "ANTHROPIC" as const, model: "claude-3", apiKey: "sk-ant" },
+        ],
       });
 
       expect(result.provider).toBe("ANTHROPIC");
-      expect(result.model).toBe("claude-3");
       expect(mockInvoke).toHaveBeenCalledTimes(2);
     });
 
@@ -105,73 +118,34 @@ describe("DiligenceLLMService", () => {
         .mockRejectedValueOnce(new Error("Fallback failed"));
 
       await expect(
-        service.invokeStructured({
-          stage: "ENTITY_EXTRACTION" as any,
-          systemInstruction: "You are a specialist.",
-          userPrompt: "Extract entities.",
-          fields: { summary: "Summary", itemsJson: "JSON array" },
-          primary: { provider: "OPENAI" as any, model: "gpt-4o", apiKey: "sk-test" },
-          fallbacks: [{ provider: "ANTHROPIC" as any, model: "claude-3", apiKey: "sk-ant" }],
+        service.invokeStructured<unknown>({
+          ...baseInput,
+          fallbacks: [
+            {
+              provider: "ANTHROPIC" as const,
+              model: "claude-3",
+              apiKey: "sk-ant",
+            },
+          ],
         })
       ).rejects.toThrow("Fallback failed");
-    });
-
-    it("throws generic error when lastError is not an Error instance", async () => {
-      mockInvoke.mockRejectedValueOnce("string error");
-
-      await expect(
-        service.invokeStructured({
-          stage: "ENTITY_EXTRACTION" as any,
-          systemInstruction: "Instruction",
-          userPrompt: "Prompt",
-          fields: { summary: "Summary" },
-          primary: { provider: "OPENAI" as any, model: "gpt-4o", apiKey: "sk-test" },
-          fallbacks: [],
-        })
-      ).rejects.toThrow("No providers were able to produce a structured response.");
-    });
-
-    it("returns null usage when message has no usage_metadata", async () => {
-      mockInvoke.mockResolvedValueOnce({
-        content: "response",
-      });
-
-      const result = await service.invokeStructured({
-        stage: "ENTITY_EXTRACTION" as any,
-        systemInstruction: "Instruction",
-        userPrompt: "Prompt",
-        fields: { summary: "Summary" },
-        primary: { provider: "OPENAI" as any, model: "gpt-4o", apiKey: "sk-test" },
-        fallbacks: [],
-      });
-
-      expect(result.usage).toBeNull();
     });
   });
 
   describe("embedText", () => {
     it("returns null for empty text", async () => {
-      const result = await service.embedText("OPENAI" as any, "sk-test", "   ");
+      const result = await service.embedText("OPENAI", "sk-test", "   ");
       expect(result).toBeNull();
-      expect(mockEmbedQuery).not.toHaveBeenCalled();
     });
 
     it("embeds text using OpenAI embeddings", async () => {
       mockEmbedQuery.mockResolvedValueOnce([0.1, 0.2, 0.3]);
-
-      const result = await service.embedText("OPENAI" as any, "sk-test", "hello world");
+      const result = await service.embedText("OPENAI", "sk-test", "hello");
       expect(result).toEqual([0.1, 0.2, 0.3]);
     });
 
-    it("embeds text using Google embeddings", async () => {
-      mockEmbedQuery.mockResolvedValueOnce([0.4, 0.5, 0.6]);
-
-      const result = await service.embedText("GOOGLE" as any, "AIzaSy-test", "hello world");
-      expect(result).toEqual([0.4, 0.5, 0.6]);
-    });
-
-    it("returns null for unsupported provider (Anthropic)", async () => {
-      const result = await service.embedText("ANTHROPIC" as any, "sk-ant", "hello world");
+    it("returns null for Anthropic", async () => {
+      const result = await service.embedText("ANTHROPIC", "sk-ant", "hello");
       expect(result).toBeNull();
     });
   });

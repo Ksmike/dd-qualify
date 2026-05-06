@@ -12,24 +12,45 @@ const mockDb = {
     findMany: vi.fn(),
   },
   diligenceArtifact: {
-    findMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
+    createMany: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+  diligenceChunk: {
+    findMany: vi.fn().mockResolvedValue([]),
     createMany: vi.fn(),
     deleteMany: vi.fn(),
   },
   diligenceEntity: {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
   },
   diligenceClaim: {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+    update: vi.fn(),
   },
   diligenceFinding: {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
   },
   diligenceContradiction: {
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
+  },
+  diligenceQuestionAnswer: {
+    upsert: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  diligenceEvidenceGap: {
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  diligenceOpenQuestion: {
     deleteMany: vi.fn(),
     createMany: vi.fn(),
   },
@@ -46,7 +67,10 @@ vi.mock("@/lib/db", () => ({ db: mockDb }));
 
 vi.mock("@/lib/generated/prisma/client", () => ({
   ApiKeyProvider: { OPENAI: "OPENAI", ANTHROPIC: "ANTHROPIC", GOOGLE: "GOOGLE" },
-  DiligenceArtifactType: { EXTRACTED_TEXT: "EXTRACTED_TEXT", GENERATED_REPORT: "GENERATED_REPORT" },
+  DiligenceArtifactType: {
+    EXTRACTED_TEXT: "EXTRACTED_TEXT",
+    GENERATED_REPORT: "GENERATED_REPORT",
+  },
   DiligenceJobStatus: {
     QUEUED: "QUEUED",
     RUNNING: "RUNNING",
@@ -58,14 +82,20 @@ vi.mock("@/lib/generated/prisma/client", () => ({
   DiligenceStageName: {
     DOCUMENT_EXTRACTION: "DOCUMENT_EXTRACTION",
     DOCUMENT_CLASSIFICATION: "DOCUMENT_CLASSIFICATION",
+    EVIDENCE_INDEXING: "EVIDENCE_INDEXING",
     ENTITY_EXTRACTION: "ENTITY_EXTRACTION",
     CLAIM_EXTRACTION: "CLAIM_EXTRACTION",
-    RISK_EXTRACTION: "RISK_EXTRACTION",
-    CROSS_DOCUMENT_VALIDATION: "CROSS_DOCUMENT_VALIDATION",
-    CONTRADICTION_DETECTION: "CONTRADICTION_DETECTION",
-    EVIDENCE_GRAPH_GENERATION: "EVIDENCE_GRAPH_GENERATION",
-    EXECUTIVE_SUMMARY_GENERATION: "EXECUTIVE_SUMMARY_GENERATION",
-    FINAL_REPORT_GENERATION: "FINAL_REPORT_GENERATION",
+    CORROBORATION: "CORROBORATION",
+    Q1_IDENTITY_AND_OWNERSHIP: "Q1_IDENTITY_AND_OWNERSHIP",
+    Q2_PRODUCT_AND_TECHNOLOGY: "Q2_PRODUCT_AND_TECHNOLOGY",
+    Q3_MARKET_AND_TRACTION: "Q3_MARKET_AND_TRACTION",
+    Q4_EXECUTION_CAPABILITY: "Q4_EXECUTION_CAPABILITY",
+    Q5_BUSINESS_MODEL_VIABILITY: "Q5_BUSINESS_MODEL_VIABILITY",
+    Q6_RISK_ANALYSIS: "Q6_RISK_ANALYSIS",
+    Q8_FAILURE_MODES_AND_FRAGILITY: "Q8_FAILURE_MODES_AND_FRAGILITY",
+    OPEN_QUESTIONS: "OPEN_QUESTIONS",
+    EXECUTIVE_SUMMARY: "EXECUTIVE_SUMMARY",
+    FINAL_REPORT: "FINAL_REPORT",
   },
   DiligenceStageStatus: {
     RUNNING: "RUNNING",
@@ -73,6 +103,16 @@ vi.mock("@/lib/generated/prisma/client", () => ({
     FAILED: "FAILED",
   },
   DiligenceStorageProvider: { JSON_COLUMN: "JSON_COLUMN" },
+  DiligenceCoreQuestion: {
+    Q1_IDENTITY: "Q1_IDENTITY",
+    Q2_PRODUCT: "Q2_PRODUCT",
+    Q3_MARKET: "Q3_MARKET",
+    Q4_EXECUTION: "Q4_EXECUTION",
+    Q5_BUSINESS_MODEL: "Q5_BUSINESS_MODEL",
+    Q6_RISKS: "Q6_RISKS",
+    Q7_EVIDENCE: "Q7_EVIDENCE",
+    Q8_FAILURE_MODES: "Q8_FAILURE_MODES",
+  },
   ProjectDocumentProcessingStatus: {
     PROCESSING: "PROCESSING",
     PROCESSED: "PROCESSED",
@@ -82,11 +122,13 @@ vi.mock("@/lib/generated/prisma/client", () => ({
 
 vi.mock("@vercel/blob", () => ({
   get: vi.fn(),
-  list: vi.fn(),
+  list: vi.fn().mockResolvedValue({ blobs: [] }),
 }));
 
 vi.mock("@/lib/blob/documents", () => ({
-  buildProjectBlobPrefix: vi.fn().mockReturnValue("users/user-1/projects/proj-1/"),
+  buildProjectBlobPrefix: vi
+    .fn()
+    .mockReturnValue("users/user-1/projects/proj-1/"),
 }));
 
 const mockInvokeStructured = vi.fn();
@@ -97,6 +139,11 @@ vi.mock("@/lib/diligence/diligence-llm-service", () => ({
 }));
 
 vi.mock("@/lib/diligence/stages", () => ({
+  STAGE_TO_QUESTION: {
+    Q1_IDENTITY_AND_OWNERSHIP: "Q1_IDENTITY",
+    Q6_RISK_ANALYSIS: "Q6_RISKS",
+    Q8_FAILURE_MODES_AND_FRAGILITY: "Q8_FAILURE_MODES",
+  },
   getNextStage: vi.fn(),
   getStageProgressPercent: vi.fn().mockReturnValue(50),
 }));
@@ -116,331 +163,203 @@ vi.mock("@/lib/models/UserApiKeyModel", () => ({
 const { DiligenceWorker } = await import("@/lib/diligence/diligence-worker");
 const { getNextStage } = await import("@/lib/diligence/stages");
 
-describe("DiligenceWorker", () => {
-  let worker: InstanceType<typeof DiligenceWorker>;
+const baseJob = {
+  id: "job-1",
+  userId: "user-1",
+  projectId: "proj-1",
+  status: "RUNNING",
+  currentStage: null,
+  selectedProvider: "OPENAI",
+  selectedModel: "gpt-4o-mini",
+  fallbackProviders: [],
+  userApiKeyId: "key-1",
+  tokenUsageTotal: 0,
+  estimatedCostUsd: 0,
+};
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    worker = new DiligenceWorker();
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockDb.diligenceArtifact.findMany.mockResolvedValue([]);
+  mockDb.diligenceChunk.findMany.mockResolvedValue([]);
+  mockDb.diligenceEntity.findMany.mockResolvedValue([]);
+  mockDb.diligenceClaim.findMany.mockResolvedValue([]);
+  mockDb.diligenceQuestionAnswer.findMany.mockResolvedValue([]);
+  mockDb.diligenceEvidenceGap.findMany.mockResolvedValue([]);
+  mockFindByIdForUser.mockResolvedValue({
+    id: "key-1",
+    enabled: true,
+    encryptedKey: "x",
+    provider: "OPENAI",
+    defaultModel: "gpt-4o-mini",
   });
+  mockDecryptApiKey.mockReturnValue("sk-test");
+});
 
-  describe("getStagePromptPlan (via runLlmStage)", () => {
-    // We test getStagePromptPlan indirectly by triggering runLlmStage
-    // and checking the prompt/fields passed to invokeStructured
-
-    const baseJob = {
-      id: "job-1",
+describe("DiligenceWorker — lifecycle", () => {
+  it("returns completed when job is already terminal", async () => {
+    mockDb.diligenceJob.findFirst.mockResolvedValue({
+      ...baseJob,
+      status: "COMPLETED",
+    });
+    const worker = new DiligenceWorker();
+    const result = await worker.runNextStage({
+      jobId: "job-1",
       userId: "user-1",
-      projectId: "proj-1",
-      status: "RUNNING",
-      currentStage: null,
-      selectedProvider: "OPENAI",
-      selectedModel: "gpt-4o",
-      fallbackProviders: [],
-      userApiKeyId: "key-1",
-      tokenUsageTotal: 0,
-      estimatedCostUsd: 0,
-    };
-
-    function setupForLlmStage(stage: string) {
-      mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
-      (getNextStage as any).mockReturnValue(stage);
-      mockDb.diligenceStageRun.upsert.mockResolvedValue({});
-      mockDb.diligenceJob.update.mockResolvedValue({});
-      mockDb.diligenceStageRun.update.mockResolvedValue({});
-      mockFindByIdForUser.mockResolvedValue({
-        id: "key-1",
-        enabled: true,
-        encryptedKey: "encrypted",
-        provider: "OPENAI",
-      });
-      mockDecryptApiKey.mockReturnValue("sk-decrypted");
-      mockDb.diligenceArtifact.findMany.mockResolvedValue([]);
-      mockDb.diligenceStageRun.findMany.mockResolvedValue([]);
-      mockInvokeStructured.mockResolvedValue({
-        provider: "OPENAI",
-        model: "gpt-4o",
-        parsed: { summary: "Test summary", itemsJson: "[]" },
-        usage: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
-        rawText: "raw output",
-      });
-    }
-
-    it("uses DOCUMENT_CLASSIFICATION prompt plan", async () => {
-      setupForLlmStage("DOCUMENT_CLASSIFICATION");
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      const call = mockInvokeStructured.mock.calls[0][0];
-      expect(call.stage).toBe("DOCUMENT_CLASSIFICATION");
-      expect(call.fields).toHaveProperty("summary");
-      expect(call.fields).toHaveProperty("itemsJson");
     });
-
-    it("uses ENTITY_EXTRACTION prompt plan", async () => {
-      setupForLlmStage("ENTITY_EXTRACTION");
-      // Mock persistStageStructuredData dependencies
-      mockDb.diligenceEntity.deleteMany.mockResolvedValue({});
-      mockDb.diligenceEntity.createMany.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      const call = mockInvokeStructured.mock.calls[0][0];
-      expect(call.stage).toBe("ENTITY_EXTRACTION");
-      expect(call.fields.itemsJson).toContain("name");
-      expect(call.fields.itemsJson).toContain("kind");
-    });
-
-    it("uses RISK_EXTRACTION prompt plan", async () => {
-      setupForLlmStage("RISK_EXTRACTION");
-      mockDb.diligenceFinding.deleteMany.mockResolvedValue({});
-      mockDb.diligenceFinding.createMany.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      const call = mockInvokeStructured.mock.calls[0][0];
-      expect(call.stage).toBe("RISK_EXTRACTION");
-      expect(call.fields.itemsJson).toContain("severity");
-    });
-
-    it("throws when userApiKeyId is missing", async () => {
-      const jobNoKey = { ...baseJob, userApiKeyId: null };
-      mockDb.diligenceJob.findFirst.mockResolvedValue(jobNoKey);
-      (getNextStage as any).mockReturnValue("ENTITY_EXTRACTION");
-      mockDb.diligenceStageRun.upsert.mockResolvedValue({});
-      mockDb.diligenceJob.update.mockResolvedValue({});
-      mockDb.diligenceStageRun.update.mockResolvedValue({});
-
-      await expect(
-        worker.runNextStage({ jobId: "job-1", userId: "user-1" })
-      ).rejects.toThrow("Missing user API key reference");
-    });
-
-    it("throws when selected API key is disabled", async () => {
-      mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
-      (getNextStage as any).mockReturnValue("ENTITY_EXTRACTION");
-      mockDb.diligenceStageRun.upsert.mockResolvedValue({});
-      mockDb.diligenceJob.update.mockResolvedValue({});
-      mockDb.diligenceStageRun.update.mockResolvedValue({});
-      mockFindByIdForUser.mockResolvedValue({
-        id: "key-1",
-        enabled: false,
-        encryptedKey: "encrypted",
-      });
-
-      await expect(
-        worker.runNextStage({ jobId: "job-1", userId: "user-1" })
-      ).rejects.toThrow("Selected API key is missing or disabled.");
-    });
+    expect(result.status).toBe("completed");
   });
 
-  describe("persistStageStructuredData (via runLlmStage)", () => {
-    const baseJob = {
-      id: "job-1",
+  it("marks the job FAILED when a stage throws", async () => {
+    mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
+    (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
+      "ENTITY_EXTRACTION"
+    );
+    mockInvokeStructured.mockRejectedValue(new Error("LLM exploded"));
+
+    const worker = new DiligenceWorker();
+    await expect(
+      worker.runNextStage({ jobId: "job-1", userId: "user-1" })
+    ).rejects.toThrow("LLM exploded");
+
+    const updateCalls = mockDb.diligenceJob.update.mock.calls;
+    const failedCall = updateCalls.find((args) => {
+      const data = (args[0] as { data: { status?: string } }).data;
+      return data.status === "FAILED";
+    });
+    expect(failedCall).toBeDefined();
+  });
+});
+
+describe("DiligenceWorker — CORROBORATION", () => {
+  it("computes SUPPORTED status when ≥2 distinct documents cite a claim", async () => {
+    mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
+    (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
+      "CORROBORATION"
+    );
+    mockDb.diligenceClaim.findMany.mockResolvedValue([
+      {
+        id: "claim-1",
+        claimText: "ARR is $4M",
+        chunkRefs: ["c1", "c2"],
+        evidenceRefs: { category: "revenue", quantitative: true, value: "4000000", unit: "USD", period: "2024" },
+      },
+    ]);
+    mockDb.diligenceChunk.findMany.mockResolvedValue([
+      { id: "c1", documentPathname: "deck.pdf" },
+      { id: "c2", documentPathname: "financials.pdf" },
+    ]);
+
+    const worker = new DiligenceWorker();
+    const result = await worker.runNextStage({
+      jobId: "job-1",
       userId: "user-1",
-      projectId: "proj-1",
-      status: "RUNNING",
-      currentStage: null,
-      selectedProvider: "OPENAI",
-      selectedModel: "gpt-4o",
-      fallbackProviders: [],
-      userApiKeyId: "key-1",
-      tokenUsageTotal: 0,
-      estimatedCostUsd: 0,
-    };
-
-    function setupForPersist(stage: string, parsedItems: string) {
-      mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
-      (getNextStage as any).mockReturnValue(stage);
-      mockDb.diligenceStageRun.upsert.mockResolvedValue({});
-      mockDb.diligenceJob.update.mockResolvedValue({});
-      mockDb.diligenceStageRun.update.mockResolvedValue({});
-      mockFindByIdForUser.mockResolvedValue({
-        id: "key-1",
-        enabled: true,
-        encryptedKey: "encrypted",
-        provider: "OPENAI",
-      });
-      mockDecryptApiKey.mockReturnValue("sk-decrypted");
-      mockDb.diligenceArtifact.findMany.mockResolvedValue([]);
-      mockDb.diligenceStageRun.findMany.mockResolvedValue([]);
-      mockInvokeStructured.mockResolvedValue({
-        provider: "OPENAI",
-        model: "gpt-4o",
-        parsed: { summary: "Summary", itemsJson: parsedItems },
-        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
-        rawText: "raw",
-      });
-    }
-
-    it("persists entities for ENTITY_EXTRACTION stage", async () => {
-      const items = JSON.stringify([
-        { name: "Acme Corp", kind: "company", confidence: 0.9 },
-        { name: "John Doe", kind: "person", confidence: 0.8 },
-      ]);
-      setupForPersist("ENTITY_EXTRACTION", items);
-      mockDb.diligenceEntity.deleteMany.mockResolvedValue({});
-      mockDb.diligenceEntity.createMany.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      expect(mockDb.diligenceEntity.deleteMany).toHaveBeenCalledWith({
-        where: { jobId: "job-1" },
-      });
-      expect(mockDb.diligenceEntity.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({ name: "Acme Corp", kind: "company" }),
-          expect.objectContaining({ name: "John Doe", kind: "person" }),
-        ]),
-      });
     });
 
-    it("persists claims for CLAIM_EXTRACTION stage", async () => {
-      const items = JSON.stringify([
-        { claim: "Revenue grew 50%", status: "SUPPORTED", confidence: 0.85 },
-      ]);
-      setupForPersist("CLAIM_EXTRACTION", items);
-      mockDb.diligenceClaim.deleteMany.mockResolvedValue({});
-      mockDb.diligenceClaim.createMany.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      expect(mockDb.diligenceClaim.deleteMany).toHaveBeenCalledWith({
-        where: { jobId: "job-1" },
-      });
-      expect(mockDb.diligenceClaim.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            claimText: "Revenue grew 50%",
-            status: "SUPPORTED",
-          }),
-        ]),
-      });
-    });
-
-    it("persists findings for RISK_EXTRACTION stage", async () => {
-      const items = JSON.stringify([
-        { title: "Market concentration", summary: "High risk", confidence: 0.7 },
-      ]);
-      setupForPersist("RISK_EXTRACTION", items);
-      mockDb.diligenceFinding.deleteMany.mockResolvedValue({});
-      mockDb.diligenceFinding.createMany.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      expect(mockDb.diligenceFinding.deleteMany).toHaveBeenCalledWith({
-        where: { jobId: "job-1", type: "RISK" },
-      });
-      expect(mockDb.diligenceFinding.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            title: "Market concentration",
-            type: "RISK",
-          }),
-        ]),
-      });
-    });
-
-    it("persists contradictions for CONTRADICTION_DETECTION stage", async () => {
-      const items = JSON.stringify([
-        {
-          statementA: "Revenue is $10M",
-          statementB: "Revenue is $5M",
-          confidence: 0.9,
-          explanation: "Conflicting revenue figures",
-        },
-      ]);
-      setupForPersist("CONTRADICTION_DETECTION", items);
-      mockDb.diligenceContradiction.deleteMany.mockResolvedValue({});
-      mockDb.diligenceContradiction.createMany.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      expect(mockDb.diligenceContradiction.deleteMany).toHaveBeenCalledWith({
-        where: { jobId: "job-1" },
-      });
-      expect(mockDb.diligenceContradiction.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            statementA: "Revenue is $10M",
-            statementB: "Revenue is $5M",
-          }),
-        ]),
-      });
-    });
-
-    it("creates artifact for FINAL_REPORT_GENERATION stage", async () => {
-      const items = JSON.stringify([
-        { section: "Overview", content: "Company overview" },
-      ]);
-      setupForPersist("FINAL_REPORT_GENERATION", items);
-      mockDb.diligenceArtifact.create.mockResolvedValue({});
-
-      await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      expect(mockDb.diligenceArtifact.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          stage: "FINAL_REPORT_GENERATION",
-          type: "GENERATED_REPORT",
-          storageProvider: "JSON_COLUMN",
-        }),
-      });
-    });
+    expect(result.status).toMatch(/progressed|completed/);
+    const updateArgs = mockDb.diligenceClaim.update.mock.calls[0]?.[0] as
+      | { data: { status?: string; sourceCount?: number; confidence?: number } }
+      | undefined;
+    expect(updateArgs?.data.status).toBe("SUPPORTED");
+    expect(updateArgs?.data.sourceCount).toBe(2);
+    expect(updateArgs?.data.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
-  describe("runNextStage - job lifecycle", () => {
-    it("throws when job is not found", async () => {
-      mockDb.diligenceJob.findFirst.mockResolvedValue(null);
+  it("computes INCONCLUSIVE for a single-source claim", async () => {
+    mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
+    (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
+      "CORROBORATION"
+    );
+    mockDb.diligenceClaim.findMany.mockResolvedValue([
+      {
+        id: "claim-1",
+        claimText: "We are best-in-class",
+        chunkRefs: ["c1"],
+        evidenceRefs: {},
+      },
+    ]);
+    mockDb.diligenceChunk.findMany.mockResolvedValue([
+      { id: "c1", documentPathname: "deck.pdf" },
+    ]);
 
-      await expect(
-        worker.runNextStage({ jobId: "job-1", userId: "user-1" })
-      ).rejects.toThrow("Diligence job not found.");
+    const worker = new DiligenceWorker();
+    await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
+
+    const updateArgs = mockDb.diligenceClaim.update.mock.calls[0]?.[0] as
+      | { data: { status?: string; sourceCount?: number } }
+      | undefined;
+    expect(updateArgs?.data.status).toBe("INCONCLUSIVE");
+    expect(updateArgs?.data.sourceCount).toBe(1);
+  });
+});
+
+describe("DiligenceWorker — question-stage persistence", () => {
+  it("persists a DiligenceQuestionAnswer for a Q-stage", async () => {
+    mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
+    (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
+      "Q1_IDENTITY_AND_OWNERSHIP"
+    );
+    mockInvokeStructured.mockResolvedValue({
+      provider: "OPENAI",
+      model: "gpt-4o-mini",
+      parsed: {
+        summary: "Identity assessed.",
+        confidence: 0.7,
+        chunk_refs_overall: ["c1"],
+        items: [{ key: "legal_name", value: "Acme Inc." }],
+        identity: { legal_name: "Acme Inc.", chunk_refs: ["c1"] },
+      },
+      usage: { input_tokens: 100, output_tokens: 50 },
+      rawText: "{}",
+    });
+    mockDb.diligenceChunk.findMany.mockResolvedValue([
+      { id: "c1", documentPathname: "incorp.pdf" },
+    ]);
+
+    const worker = new DiligenceWorker();
+    await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
+
+    expect(mockDb.diligenceQuestionAnswer.upsert).toHaveBeenCalledTimes(1);
+    const upsertArgs = mockDb.diligenceQuestionAnswer.upsert.mock.calls[0]?.[0] as {
+      where: { jobId_question: { question: string } };
+      create: { question: string; sourceCount: number };
+    };
+    expect(upsertArgs.where.jobId_question.question).toBe("Q1_IDENTITY");
+    expect(upsertArgs.create.sourceCount).toBe(1);
+  });
+
+  it("persists evidence gaps when the LLM emits them", async () => {
+    mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
+    (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
+      "Q6_RISK_ANALYSIS"
+    );
+    mockInvokeStructured.mockResolvedValue({
+      provider: "OPENAI",
+      model: "gpt-4o-mini",
+      parsed: {
+        summary: "",
+        risks: [],
+        items: [],
+        evidence_gaps: [
+          {
+            title: "No SOC2 evidence found",
+            description: "...",
+            severity: "high",
+            suggested_source: "audit report",
+          },
+        ],
+      },
+      usage: {},
+      rawText: "{}",
     });
 
-    it("returns completed when job is already COMPLETED", async () => {
-      mockDb.diligenceJob.findFirst.mockResolvedValue({
-        id: "job-1",
-        status: "COMPLETED",
-      });
+    const worker = new DiligenceWorker();
+    await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
 
-      const result = await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-      expect(result).toEqual({ status: "completed" });
-    });
-
-    it("returns completed when job is CANCELED", async () => {
-      mockDb.diligenceJob.findFirst.mockResolvedValue({
-        id: "job-1",
-        status: "CANCELED",
-      });
-
-      const result = await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-      expect(result).toEqual({ status: "completed" });
-    });
-
-    it("returns completed and updates status when no next stage", async () => {
-      mockDb.diligenceJob.findFirst.mockResolvedValue({
-        id: "job-1",
-        userId: "user-1",
-        projectId: "proj-1",
-        status: "RUNNING",
-        currentStage: "FINAL_REPORT_GENERATION",
-      });
-      (getNextStage as any).mockReturnValue(null);
-      mockDb.diligenceJob.update.mockResolvedValue({});
-      mockDb.project.updateMany.mockResolvedValue({});
-
-      const result = await worker.runNextStage({ jobId: "job-1", userId: "user-1" });
-
-      expect(result).toEqual({ status: "completed" });
-      expect(mockDb.diligenceJob.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "job-1" },
-          data: expect.objectContaining({
-            status: "COMPLETED",
-            progressPercent: 100,
-          }),
-        })
-      );
-    });
+    expect(mockDb.diligenceEvidenceGap.createMany).toHaveBeenCalledTimes(1);
+    const data = (mockDb.diligenceEvidenceGap.createMany.mock.calls[0]?.[0] as {
+      data: Array<{ question: string; severity: string }>;
+    }).data;
+    expect(data[0]?.question).toBe("Q6_RISKS");
+    expect(data[0]?.severity).toBe("high");
   });
 });

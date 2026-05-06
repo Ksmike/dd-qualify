@@ -10,14 +10,20 @@ enum DiligenceJobStatus {
 enum DiligenceStageName {
     DOCUMENT_EXTRACTION
     DOCUMENT_CLASSIFICATION
+    EVIDENCE_INDEXING
     ENTITY_EXTRACTION
     CLAIM_EXTRACTION
-    RISK_EXTRACTION
-    CROSS_DOCUMENT_VALIDATION
-    CONTRADICTION_DETECTION
-    EVIDENCE_GRAPH_GENERATION
-    EXECUTIVE_SUMMARY_GENERATION
-    FINAL_REPORT_GENERATION
+    CORROBORATION
+    Q1_IDENTITY_AND_OWNERSHIP
+    Q2_PRODUCT_AND_TECHNOLOGY
+    Q3_MARKET_AND_TRACTION
+    Q4_EXECUTION_CAPABILITY
+    Q5_BUSINESS_MODEL_VIABILITY
+    Q6_RISK_ANALYSIS
+    Q8_FAILURE_MODES_AND_FRAGILITY
+    OPEN_QUESTIONS
+    EXECUTIVE_SUMMARY
+    FINAL_REPORT
 }
 
 enum DiligenceStageStatus {
@@ -63,6 +69,17 @@ enum DiligenceClaimStatus {
     INCONCLUSIVE
 }
 
+enum DiligenceCoreQuestion {
+    Q1_IDENTITY
+    Q2_PRODUCT
+    Q3_MARKET
+    Q4_EXECUTION
+    Q5_BUSINESS_MODEL
+    Q6_RISKS
+    Q7_EVIDENCE
+    Q8_FAILURE_MODES
+}
+
 model DiligenceJob {
     id                String             @id @default(cuid())
     projectId         String
@@ -97,6 +114,10 @@ model DiligenceJob {
     claims DiligenceClaim[]
     entities DiligenceEntity[]
     contradictions DiligenceContradiction[]
+    chunks DiligenceChunk[]
+    questionAnswers DiligenceQuestionAnswer[]
+    evidenceGaps DiligenceEvidenceGap[]
+    openQuestions DiligenceOpenQuestion[]
 
     @@index([projectId, createdAt])
     @@index([userId, createdAt])
@@ -154,17 +175,42 @@ model DiligenceArtifact {
     @@index([storageProvider])
 }
 
+model DiligenceChunk {
+    id               String   @id @default(cuid())
+    projectId        String
+    jobId            String
+    userId           String
+    documentPathname String
+    documentFilename String
+    page             Int?
+    chunkIndex       Int
+    text             String
+    hash             String
+    tokenEstimate    Int      @default(0)
+    createdAt        DateTime @default(now())
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([jobId, documentPathname, chunkIndex])
+    @@index([jobId])
+    @@index([projectId])
+}
+
 model DiligenceEntity {
-    id         String    @id @default(cuid())
-    projectId  String
-    jobId      String
-    userId     String
-    name       String
-    kind       String
-    confidence Float?
-    metadata   Json?
-    createdAt  DateTime  @default(now())
-    updatedAt  DateTime  @updatedAt
+    id          String   @id @default(cuid())
+    projectId   String
+    jobId       String
+    userId      String
+    name        String
+    kind        String
+    confidence  Float?
+    sourceCount Int      @default(0)
+    chunkRefs   Json?
+    metadata    Json?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 
     project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
     job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -175,17 +221,19 @@ model DiligenceEntity {
 }
 
 model DiligenceClaim {
-    id               String              @id @default(cuid())
-    projectId        String
-    jobId            String
-    userId           String
-    claimText        String
-    status           DiligenceClaimStatus @default(INCONCLUSIVE)
-    confidence       Float?
-    evidenceRefs     Json?
-    contradictions   Json?
-    createdAt        DateTime            @default(now())
-    updatedAt        DateTime            @updatedAt
+    id             String              @id @default(cuid())
+    projectId      String
+    jobId          String
+    userId         String
+    claimText      String
+    status         DiligenceClaimStatus @default(INCONCLUSIVE)
+    confidence     Float?
+    sourceCount    Int                 @default(0)
+    chunkRefs      Json?
+    evidenceRefs   Json?
+    contradictions Json?
+    createdAt      DateTime            @default(now())
+    updatedAt      DateTime            @updatedAt
 
     project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
     job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -196,18 +244,21 @@ model DiligenceClaim {
 }
 
 model DiligenceFinding {
-    id          String              @id @default(cuid())
-    projectId   String
-    jobId       String
-    userId      String
-    type        DiligenceFindingType
-    title       String
-    summary     String
-    confidence  Float?
+    id           String              @id @default(cuid())
+    projectId    String
+    jobId        String
+    userId       String
+    type         DiligenceFindingType
+    title        String
+    summary      String
+    severity     String?
+    confidence   Float?
+    sourceCount  Int                 @default(0)
+    chunkRefs    Json?
     evidenceRefs Json?
-    metadata    Json?
-    createdAt   DateTime            @default(now())
-    updatedAt   DateTime            @updatedAt
+    metadata     Json?
+    createdAt    DateTime            @default(now())
+    updatedAt    DateTime            @updatedAt
 
     project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
     job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -224,7 +275,9 @@ model DiligenceContradiction {
     userId       String
     statementA   String
     statementB   String
+    severity     String?
     confidence   Float?
+    chunkRefs    Json?
     evidenceRefs Json?
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
@@ -235,4 +288,67 @@ model DiligenceContradiction {
 
     @@index([projectId])
     @@index([jobId])
+}
+
+model DiligenceQuestionAnswer {
+    id          String                @id @default(cuid())
+    projectId   String
+    jobId       String
+    userId      String
+    question    DiligenceCoreQuestion
+    summary     String
+    structured  Json
+    confidence  Float?
+    sourceCount Int                   @default(0)
+    chunkRefs   Json?
+    createdAt   DateTime              @default(now())
+    updatedAt   DateTime              @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([jobId, question])
+    @@index([projectId])
+}
+
+model DiligenceEvidenceGap {
+    id              String                @id @default(cuid())
+    projectId       String
+    jobId           String
+    userId          String
+    question        DiligenceCoreQuestion
+    title           String
+    description     String
+    severity        String
+    suggestedSource String?
+    createdAt       DateTime              @default(now())
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([jobId])
+    @@index([projectId, question])
+}
+
+model DiligenceOpenQuestion {
+    id         String                @id @default(cuid())
+    projectId  String
+    jobId      String
+    userId     String
+    category   DiligenceCoreQuestion
+    question   String
+    rationale  String
+    priority   String
+    resolvedBy String?
+    chunkRefs  Json?
+    createdAt  DateTime              @default(now())
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([jobId])
+    @@index([projectId, category, priority])
 }

@@ -138,14 +138,20 @@ export type AppLabels = {
       diligenceStages: {
         DOCUMENT_EXTRACTION: string;
         DOCUMENT_CLASSIFICATION: string;
+        EVIDENCE_INDEXING: string;
         ENTITY_EXTRACTION: string;
         CLAIM_EXTRACTION: string;
-        RISK_EXTRACTION: string;
-        CROSS_DOCUMENT_VALIDATION: string;
-        CONTRADICTION_DETECTION: string;
-        EVIDENCE_GRAPH_GENERATION: string;
-        EXECUTIVE_SUMMARY_GENERATION: string;
-        FINAL_REPORT_GENERATION: string;
+        CORROBORATION: string;
+        Q1_IDENTITY_AND_OWNERSHIP: string;
+        Q2_PRODUCT_AND_TECHNOLOGY: string;
+        Q3_MARKET_AND_TRACTION: string;
+        Q4_EXECUTION_CAPABILITY: string;
+        Q5_BUSINESS_MODEL_VIABILITY: string;
+        Q6_RISK_ANALYSIS: string;
+        Q8_FAILURE_MODES_AND_FRAGILITY: string;
+        OPEN_QUESTIONS: string;
+        EXECUTIVE_SUMMARY: string;
+        FINAL_REPORT: string;
       };
       setupApiKeysMessage: string;
       setupApiKeysToast: string;

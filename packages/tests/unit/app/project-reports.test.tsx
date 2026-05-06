@@ -46,7 +46,7 @@ describe("ReportsView", () => {
       {
         id: "art-1",
         jobId: "job-1",
-        stage: "FINAL_REPORT_GENERATION",
+        stage: "FINAL_REPORT",
         type: "GENERATED_REPORT",
         mimeType: "application/pdf",
         sizeBytes: 2048,

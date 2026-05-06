@@ -19,7 +19,7 @@ export function Header({
 
   return (
     <header
-      className={`flex items-center justify-between px-6 py-4 ${
+      className={`flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 ${
         dark
           ? "border-b border-white/8 bg-[#0f0e0d]"
           : "border-b border-divider bg-background"
@@ -27,14 +27,15 @@ export function Header({
     >
       <Link
         href="/"
-        className={`text-lg font-semibold ${dark ? "text-white" : "text-foreground"}`}
+        className={`text-base font-semibold sm:text-lg ${dark ? "text-white" : "text-foreground"}`}
       >
         DD Qualify
       </Link>
-      <nav className="flex items-center gap-2">
+      <nav className="flex items-center gap-1 sm:gap-2">
+        {/* Hide nav links on very small screens */}
         <Link
           href="/#workflow"
-          className={`text-sm font-medium transition-colors ${
+          className={`hidden sm:inline-block text-sm font-medium transition-colors px-2 ${
             dark
               ? "text-white/50 hover:text-white"
               : "text-foreground/70 hover:text-foreground"
@@ -44,7 +45,7 @@ export function Header({
         </Link>
         <Link
           href="/#coverage"
-          className={`text-sm font-medium transition-colors px-2 ${
+          className={`hidden sm:inline-block text-sm font-medium transition-colors px-2 ${
             dark
               ? "text-white/50 hover:text-white"
               : "text-foreground/70 hover:text-foreground"
@@ -54,7 +55,7 @@ export function Header({
         </Link>
         <Link
           href="/dashboard"
-          className={`text-sm font-medium transition-colors px-2 ${
+          className={`hidden md:inline-block text-sm font-medium transition-colors px-2 ${
             dark
               ? "text-white/50 hover:text-white"
               : "text-foreground/70 hover:text-foreground"
@@ -76,7 +77,7 @@ export function Header({
         ) : (
           <Link
             href="/login"
-            className="ml-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
             Sign in
           </Link>
