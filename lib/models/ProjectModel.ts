@@ -1,19 +1,39 @@
 import { db } from "@/lib/db";
+import { ProjectStatus as PrismaProjectStatus } from "@/lib/generated/prisma/client";
 
-const PROJECT_STATUSES = [
-  "draft",
-  "inprogress",
-  "reviewed",
-  "complete",
-  "rejected",
-] as const;
+/**
+ * App-level project status (used in UI, labels, routing).
+ * Maps 1:1 to the Prisma ProjectStatus enum.
+ */
+export type ProjectStatus =
+  | "draft"
+  | "inprogress"
+  | "reviewed"
+  | "complete"
+  | "rejected";
 
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+const PRISMA_TO_APP: Record<PrismaProjectStatus, ProjectStatus> = {
+  [PrismaProjectStatus.DRAFT]: "draft",
+  [PrismaProjectStatus.IN_PROGRESS]: "inprogress",
+  [PrismaProjectStatus.REVIEWED]: "reviewed",
+  [PrismaProjectStatus.COMPLETE]: "complete",
+  [PrismaProjectStatus.REJECTED]: "rejected",
+};
 
-function toProjectStatus(status: string): ProjectStatus {
-  return PROJECT_STATUSES.includes(status as ProjectStatus)
-    ? (status as ProjectStatus)
-    : "draft";
+const APP_TO_PRISMA: Record<ProjectStatus, PrismaProjectStatus> = {
+  draft: PrismaProjectStatus.DRAFT,
+  inprogress: PrismaProjectStatus.IN_PROGRESS,
+  reviewed: PrismaProjectStatus.REVIEWED,
+  complete: PrismaProjectStatus.COMPLETE,
+  rejected: PrismaProjectStatus.REJECTED,
+};
+
+function toAppStatus(prismaStatus: PrismaProjectStatus): ProjectStatus {
+  return PRISMA_TO_APP[prismaStatus] ?? "draft";
+}
+
+function toPrismaStatus(appStatus: ProjectStatus): PrismaProjectStatus {
+  return APP_TO_PRISMA[appStatus] ?? PrismaProjectStatus.DRAFT;
 }
 
 export const ProjectModel = {
@@ -38,7 +58,7 @@ export const ProjectModel = {
 
     return projects.map((project) => ({
       ...project,
-      status: toProjectStatus(project.status),
+      status: toAppStatus(project.status),
     }));
   },
 
@@ -70,7 +90,7 @@ export const ProjectModel = {
 
     return {
       ...project,
-      status: toProjectStatus(project.status),
+      status: toAppStatus(project.status),
     };
   },
 
@@ -78,7 +98,7 @@ export const ProjectModel = {
     return db.project.create({
       data: {
         name: input.name,
-        status: "draft",
+        status: PrismaProjectStatus.DRAFT,
         userId: input.userId,
       },
     });
@@ -95,7 +115,7 @@ export const ProjectModel = {
         userId: input.userId,
       },
       data: {
-        status: input.status,
+        status: toPrismaStatus(input.status),
       },
     });
 

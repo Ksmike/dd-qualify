@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -17,6 +17,10 @@ vi.mock("@/lib/actions/sidebar", () => ({
 }));
 
 describe("Sidebar — default nav", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("renders Dashboard link", () => {
     mockPathname.mockReturnValue("/dashboard");
     render(<Sidebar />);
@@ -37,6 +41,10 @@ describe("Sidebar — default nav", () => {
 });
 
 describe("Sidebar — project nav", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("renders project sub-nav links when on a project route", async () => {
     mockGetProjectForSidebar.mockResolvedValue({
       id: "p-1",

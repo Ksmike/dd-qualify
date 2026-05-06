@@ -23,6 +23,7 @@ import {
   DiligenceStageName,
   DiligenceStageStatus,
   DiligenceStorageProvider,
+  ProjectStatus as PrismaProjectStatus,
   type Prisma,
   ProjectDocumentProcessingStatus,
 } from "@/lib/generated/prisma/client";
