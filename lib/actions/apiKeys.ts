@@ -3,12 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ApiKeyProvider } from "@/lib/generated/prisma/client";
+import type { ApiKeyProvider } from "@/lib/generated/prisma/client";
 import { ModelProviderRegistry } from "@/lib/diligence/model-provider";
 import { defaultModelForProvider } from "@/lib/diligence/model-router";
 import { UserApiKeyModel } from "@/lib/models/UserApiKeyModel";
-
-export type { ApiKeyProvider };
 
 export type ApiKeyStatus = {
   id: string | null;

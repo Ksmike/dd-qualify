@@ -9,7 +9,8 @@ import {
   validateApiKey,
   updateApiKeySettings,
 } from "@/lib/actions/apiKeys";
-import type { ApiKeyProvider, ApiKeyStatus } from "@/lib/actions/apiKeys";
+import type { ApiKeyStatus } from "@/lib/actions/apiKeys";
+import type { ApiKeyProvider } from "@/lib/generated/prisma/client";
 import type { IconType } from "react-icons";
 
 type ProviderMeta = {
