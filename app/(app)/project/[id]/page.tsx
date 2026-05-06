@@ -53,6 +53,7 @@ export default async function ProjectInspectPage({
 
       <ProjectDocumentsPanel
         projectId={project.id}
+        projectStatus={project.status}
         hasAnyApiKeys={hasAnyApiKeys}
         labels={labels.app.projectInspect}
       />

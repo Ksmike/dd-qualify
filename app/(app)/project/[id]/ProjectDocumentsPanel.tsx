@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { toast } from "@heroui/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startProjectDueDiligence } from "@/lib/actions/project";
+import type { ProjectStatus } from "@/lib/models/ProjectModel";
 
 type ProjectInspectDocument = {
   filename: string;
@@ -38,6 +40,7 @@ type ProjectDocumentsPanelLabels = {
 
 type ProjectDocumentsPanelProps = {
   projectId: string;
+  projectStatus: ProjectStatus;
   hasAnyApiKeys: boolean;
   labels: ProjectDocumentsPanelLabels;
 };
@@ -72,9 +75,11 @@ function formatSize(bytes: number): string {
 
 export function ProjectDocumentsPanel({
   projectId,
+  projectStatus,
   hasAnyApiKeys,
   labels,
 }: ProjectDocumentsPanelProps) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [documents, setDocuments] = useState<ProjectInspectDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,6 +88,7 @@ export function ProjectDocumentsPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [deletingPaths, setDeletingPaths] = useState<string[]>([]);
+  const [isStartingDiligence, setIsStartingDiligence] = useState(false);
 
   const documentsApiUrl = useMemo(
     () => `/api/projects/${projectId}/documents`,
@@ -249,130 +255,122 @@ export function ProjectDocumentsPanel({
     void uploadFiles(pickedFiles);
   }
 
-  function handleBeDiligent() {
+  async function handleBeDiligent() {
     if (!hasAnyApiKeys) {
       toast.warning(labels.setupApiKeysToast);
       window.open("/settings", "_blank", "noopener,noreferrer");
       return;
     }
+    if (projectStatus !== "draft") {
+      return;
+    }
 
-    toast.info(labels.diligenceStartToast);
+    setIsStartingDiligence(true);
+    try {
+      const result = await startProjectDueDiligence(projectId);
+      if (result.error) {
+        toast.danger(result.error);
+        return;
+      }
+      toast.success(labels.diligenceStartToast);
+      router.refresh();
+    } finally {
+      setIsStartingDiligence(false);
+    }
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-divider bg-content1 p-6">
-      <h2 className="text-lg font-semibold text-foreground">
-        {labels.documentsHeading}
-      </h2>
+    <div className="space-y-4">
+      <section className="space-y-4 rounded-xl border border-divider bg-content1 p-6">
+        <h2 className="text-lg font-semibold text-foreground">
+          {labels.documentsHeading}
+        </h2>
 
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-          isDragActive
-            ? "border-primary bg-primary/10"
-            : "border-divider bg-background"
-        }`}
-      >
-        <p className="text-sm font-medium text-foreground">{labels.dropzoneTitle}</p>
-        <p className="mt-1 text-xs text-foreground/70">{labels.dropzoneHint}</p>
-        {isUploading && (
-          <p className="mt-3 text-xs font-medium text-warning">
-            {labels.uploadInProgress}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+            isDragActive
+              ? "border-primary bg-primary/10"
+              : "border-divider bg-background"
+          }`}
+        >
+          <p className="text-sm font-medium text-foreground">{labels.dropzoneTitle}</p>
+          <p className="mt-1 text-xs text-foreground/70">{labels.dropzoneHint}</p>
+          {isUploading && (
+            <p className="mt-3 text-xs font-medium text-warning">
+              {labels.uploadInProgress}
+            </p>
+          )}
+          <label
+            htmlFor="files"
+            className="mt-4 inline-block cursor-pointer rounded-md border border-divider bg-content1 px-3 py-2 text-xs font-medium text-foreground hover:bg-content2"
+          >
+            {labels.fileInputLabel}
+          </label>
+          <input
+            ref={fileInputRef}
+            id="files"
+            name="files"
+            type="file"
+            multiple
+            accept=".txt,.docx,.pages,.pdf,.ppt,.pptx,.key,.keynote"
+            onChange={handleInputChange}
+            className="sr-only"
+          />
+        </div>
+
+        {uploadItems.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">
+              {labels.uploadQueueHeading}
+            </p>
+            <ul className="space-y-2">
+              {uploadItems.map((item) => (
+                <li
+                  key={item.key}
+                  className="rounded-md border border-divider bg-background px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.filename}</p>
+                      <p className="text-xs text-foreground/60">{formatSize(item.size)}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        item.status === "uploaded"
+                          ? "bg-success/15 text-success"
+                          : item.status === "failed"
+                            ? "bg-danger/15 text-danger"
+                            : item.status === "uploading"
+                              ? "bg-warning/15 text-warning"
+                              : "bg-content2 text-foreground/80"
+                      }`}
+                    >
+                      {uploadStatusText[item.status]}
+                    </span>
+                  </div>
+                  {item.error && (
+                    <p className="mt-2 text-xs text-danger">{item.error}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {errorMessage && (
+          <p className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
+            {errorMessage}
           </p>
         )}
-        <label
-          htmlFor="files"
-          className="mt-4 inline-block cursor-pointer rounded-md border border-divider bg-content1 px-3 py-2 text-xs font-medium text-foreground hover:bg-content2"
-        >
-          {labels.fileInputLabel}
-        </label>
-        <input
-          ref={fileInputRef}
-          id="files"
-          name="files"
-          type="file"
-          multiple
-          accept=".txt,.docx,.pages,.pdf,.ppt,.pptx,.key,.keynote"
-          onChange={handleInputChange}
-          className="sr-only"
-        />
-      </div>
 
-      {uploadItems.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-foreground">
-            {labels.uploadQueueHeading}
-          </p>
-          <ul className="space-y-2">
-            {uploadItems.map((item) => (
-              <li
-                key={item.key}
-                className="rounded-md border border-divider bg-background px-3 py-2"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{item.filename}</p>
-                    <p className="text-xs text-foreground/60">{formatSize(item.size)}</p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      item.status === "uploaded"
-                        ? "bg-success/15 text-success"
-                        : item.status === "failed"
-                          ? "bg-danger/15 text-danger"
-                          : item.status === "uploading"
-                            ? "bg-warning/15 text-warning"
-                            : "bg-content2 text-foreground/80"
-                    }`}
-                  >
-                    {uploadStatusText[item.status]}
-                  </span>
-                </div>
-                {item.error && (
-                  <p className="mt-2 text-xs text-danger">{item.error}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {errorMessage && (
-        <p className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
-          {errorMessage}
-        </p>
-      )}
-
-      {isLoading ? (
-        <p className="text-sm text-foreground/70">{labels.loadingDocuments}</p>
-      ) : documents.length === 0 ? (
-        <p className="text-sm text-foreground/70">{labels.emptyDocuments}</p>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2">
-            <button
-              type="button"
-              onClick={handleBeDiligent}
-              className={`rounded-md px-3 py-2 text-xs font-medium transition-opacity ${
-                hasAnyApiKeys
-                  ? "bg-success/20 text-success hover:opacity-90"
-                  : "bg-warning/20 text-warning hover:opacity-90"
-              }`}
-            >
-              {labels.beDiligentCta}
-            </button>
-            {!hasAnyApiKeys && (
-              <p className="text-xs text-foreground/70">
-                {labels.setupApiKeysMessage}{" "}
-                <Link href="/settings" target="_blank" className="text-primary underline">
-                  Settings
-                </Link>
-              </p>
-            )}
-          </div>
-
+        {isLoading ? (
+          <p className="text-sm text-foreground/70">{labels.loadingDocuments}</p>
+        ) : documents.length === 0 ? (
+          <p className="text-sm text-foreground/70">{labels.emptyDocuments}</p>
+        ) : (
           <ul className="space-y-2">
             {documents.map((document) => (
               <li
@@ -408,8 +406,25 @@ export function ProjectDocumentsPanel({
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {documents.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => void handleBeDiligent()}
+            disabled={isStartingDiligence || projectStatus !== "draft"}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60 ${
+              hasAnyApiKeys
+                ? "bg-success/20 text-success hover:opacity-90"
+                : "bg-warning/20 text-warning hover:opacity-90"
+            }`}
+          >
+            {labels.beDiligentCta}
+          </button>
         </div>
       )}
-    </section>
+    </div>
   );
 }

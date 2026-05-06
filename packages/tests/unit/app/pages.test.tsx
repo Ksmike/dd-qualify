@@ -135,7 +135,8 @@ vi.mock("@/labels", () => ({
           statusHeading: "Status",
           inspectCta: "Inspect",
           statuses: {
-            inprogress: "inprogress",
+            draft: "draft",
+            inprogress: "in progress",
             complete: "complete",
             rejected: "rejected",
           },
@@ -217,7 +218,7 @@ describe("DashboardPage", () => {
     ).toHaveAttribute("href", "/projects/new");
     expect(screen.getByText("Alpha Project")).toBeInTheDocument();
     expect(screen.getByText("Beta Project")).toBeInTheDocument();
-    expect(screen.getByText("inprogress")).toBeInTheDocument();
+    expect(screen.getByText("in progress")).toBeInTheDocument();
     expect(screen.getByText("complete")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Alpha Project/i })
@@ -261,7 +262,7 @@ describe("ProjectInspectPage", () => {
 
     expect(screen.getByTestId("project-header")).toBeInTheDocument();
     expect(screen.getByText("Alpha Project")).toBeInTheDocument();
-    expect(screen.getByText("inprogress")).toBeInTheDocument();
+    expect(screen.getByText("in progress")).toBeInTheDocument();
     expect(screen.getByText("project-1")).toBeInTheDocument();
     expect(screen.getByTestId("project-documents-panel")).toBeInTheDocument();
   });
