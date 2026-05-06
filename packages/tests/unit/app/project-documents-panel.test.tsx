@@ -106,6 +106,9 @@ const labels = {
   },
   setupApiKeysMessage: "Add at least one API key in Settings to run due diligence.",
   setupApiKeysToast: "No API keys found. Opening Settings in a new tab.",
+  setupApiKeysNotification:
+    "No API keys found. Add one in Settings to run due diligence.",
+  setupApiKeysLinkCta: "Go to Settings",
   diligenceStartToast: "Due diligence started.",
   insightsHeading: "Reviewed insights",
   insightsEmpty: "No reviewed insights yet. Run due diligence to generate findings.",
@@ -179,9 +182,114 @@ describe("ProjectDocumentsPanel", () => {
       "href",
       "/api/projects/project-1/documents/report.pdf"
     );
+    expect(
+      screen.queryByRole("button", { name: "Re-process" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Upload files")).toBeInTheDocument();
   });
 
-  it("routes users without API keys to settings in a new tab", async () => {
+  it("hides file upload controls while diligence is in progress", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            id: "doc-1",
+            filename: "report.pdf",
+            pathname: "user-1/project-1/report.pdf",
+            size: 2048,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "QUEUED",
+            processingError: null,
+            lastProcessedAt: null,
+            reprocessCount: 0,
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        projectStatus="inprogress"
+        hasAnyApiKeys={true}
+        apiKeyStatuses={[...apiKeyStatuses]}
+        diligenceJob={{
+          id: "job-1",
+          status: "RUNNING",
+          selectedProvider: "OPENAI",
+          selectedModel: "gpt-4o-mini",
+          currentStage: "DOCUMENT_EXTRACTION",
+          progressPercent: 40,
+          tokenUsageTotal: 100,
+          estimatedCostUsd: 0.01,
+          errorMessage: null,
+          stageRuns: [],
+        }}
+        insights={null}
+        labels={labels}
+      />
+    );
+
+    expect(await screen.findByText("report.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("Upload files")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Drag and drop files to upload")
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Diligence worker")).toBeInTheDocument();
+  });
+
+  it("shows re-process action only for processed files", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            id: "doc-1",
+            filename: "processed.pdf",
+            pathname: "user-1/project-1/processed.pdf",
+            size: 2048,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "PROCESSED",
+            processingError: null,
+            lastProcessedAt: "2026-05-06T00:00:00.000Z",
+            reprocessCount: 0,
+          },
+          {
+            id: "doc-2",
+            filename: "queued.pdf",
+            pathname: "user-1/project-1/queued.pdf",
+            size: 1024,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "QUEUED",
+            processingError: null,
+            lastProcessedAt: null,
+            reprocessCount: 0,
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        projectStatus="draft"
+        hasAnyApiKeys={true}
+        apiKeyStatuses={[...apiKeyStatuses]}
+        diligenceJob={null}
+        insights={null}
+        labels={labels}
+      />
+    );
+
+    expect(await screen.findByText("processed.pdf")).toBeInTheDocument();
+    expect(screen.getByText("queued.pdf")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Re-process" })).toHaveLength(1);
+  });
+
+  it("shows missing API key notification with a settings link", async () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -218,13 +326,57 @@ describe("ProjectDocumentsPanel", () => {
 
     await user.click(await screen.findByRole("button", { name: "Be Diligent" }));
 
-    expect(toast.warning).toHaveBeenCalledWith(
-      "No API keys found. Opening Settings in a new tab."
+    expect(
+      await screen.findByText(
+        "No API keys found. Add one in Settings to run due diligence."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Go to Settings" })
+    ).toHaveAttribute("href", "/settings");
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not trigger diligence start when keys are missing", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            id: "doc-1",
+            filename: "report.pdf",
+            pathname: "user-1/project-1/report.pdf",
+            size: 2048,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "QUEUED",
+            processingError: null,
+            lastProcessedAt: null,
+            reprocessCount: 0,
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        projectStatus="draft"
+        hasAnyApiKeys={false}
+        apiKeyStatuses={[]}
+        diligenceJob={null}
+        insights={null}
+        labels={labels}
+      />
     );
-    expect(openSpy).toHaveBeenCalledWith(
-      "/settings",
-      "_blank",
-      "noopener,noreferrer"
+
+    await user.click(await screen.findByRole("button", { name: "Be Diligent" }));
+    expect(startProjectDueDiligence).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalledWith(
+      "Due diligence job initialized."
     );
   });
 

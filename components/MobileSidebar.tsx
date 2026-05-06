@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
 import { FiChevronLeft } from "react-icons/fi";
 import { navItems } from "@/components/Sidebar";
@@ -28,6 +29,7 @@ function buildProjectSubNav(input: {
 
 export function MobileSidebar() {
   const [open, setOpen] = useState(false);
+  const [highlightSettings, setHighlightSettings] = useState(false);
   const pathname = usePathname();
   const projectMatch = pathname.match(/^\/project\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
@@ -67,6 +69,18 @@ export function MobileSidebar() {
     setOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    function handleHighlightSettings() {
+      setHighlightSettings(true);
+      window.setTimeout(() => setHighlightSettings(false), 2200);
+    }
+
+    window.addEventListener("ddq:highlight-settings-nav", handleHighlightSettings);
+    return () => {
+      window.removeEventListener("ddq:highlight-settings-nav", handleHighlightSettings);
+    };
+  }, []);
+
   const projectSubNav = buildProjectSubNav({
     hasInsights: projectSidebarData?.hasInsights ?? false,
     hasReports: projectSidebarData?.hasReports ?? false,
@@ -75,15 +89,21 @@ export function MobileSidebar() {
   return (
     <>
       {/* Hamburger */}
-      <button
+      <motion.button
         onClick={() => setOpen(true)}
+        animate={
+          highlightSettings
+            ? { x: [0, -4, 4, -2, 2, 0], scale: [1, 1.06, 1] }
+            : { x: 0, scale: 1 }
+        }
+        transition={{ duration: 0.5, ease: "easeInOut" }}
         className="flex items-center justify-center rounded-md p-2 text-foreground/70 transition-colors hover:bg-content2 hover:text-foreground"
         aria-label="Open menu"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
           <path d="M3 5h14M3 10h14M3 15h14" />
         </svg>
-      </button>
+      </motion.button>
 
       {/* Backdrop */}
       {open && (
@@ -158,17 +178,30 @@ export function MobileSidebar() {
 
               <div className="my-2 border-t border-divider" />
 
-              <Link
-                href="/settings"
-                onClick={() => setOpen(false)}
-                className={`rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-                  pathname === "/settings"
-                    ? "bg-content2 text-foreground"
-                    : "text-foreground/70 hover:bg-content2 hover:text-foreground"
-                }`}
+              <motion.div
+                animate={
+                  highlightSettings
+                    ? {
+                        x: [0, -4, 4, -2, 2, 0],
+                        scale: [1, 1.02, 1],
+                      }
+                    : { x: 0, scale: 1 }
+                }
+                transition={{ duration: 0.52, ease: "easeInOut" }}
+                className={highlightSettings ? "rounded-md ring-2 ring-warning/45" : ""}
               >
-                Settings
-              </Link>
+                <Link
+                  href="/settings"
+                  onClick={() => setOpen(false)}
+                  className={`rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                    pathname === "/settings"
+                      ? "bg-content2 text-foreground"
+                      : "text-foreground/70 hover:bg-content2 hover:text-foreground"
+                  }`}
+                >
+                  Settings
+                </Link>
+              </motion.div>
             </>
           ) : (
             navItems.map((item) => (

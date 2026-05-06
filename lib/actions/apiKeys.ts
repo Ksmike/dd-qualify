@@ -20,6 +20,47 @@ export type ApiKeyStatus = {
 
 const PROVIDERS: ApiKeyProvider[] = ["OPENAI", "ANTHROPIC", "GOOGLE"];
 
+/**
+ * Validates the format/prefix of an API key for a given provider.
+ * Returns an error message if invalid, or null if the format looks correct.
+ */
+function validateKeyFormat(provider: ApiKeyProvider, key: string): string | null {
+  switch (provider) {
+    case "OPENAI":
+      // OpenAI keys start with "sk-" and are typically 40-200 chars
+      if (!key.startsWith("sk-")) {
+        return "OpenAI keys must start with \"sk-\". Check that you copied the full key.";
+      }
+      if (key.length < 20) {
+        return "This OpenAI key looks too short. Keys are typically 50+ characters.";
+      }
+      return null;
+
+    case "ANTHROPIC":
+      // Anthropic keys start with "sk-ant-"
+      if (!key.startsWith("sk-ant-")) {
+        return "Anthropic keys must start with \"sk-ant-\". Check that you copied the full key.";
+      }
+      if (key.length < 30) {
+        return "This Anthropic key looks too short. Keys are typically 90+ characters.";
+      }
+      return null;
+
+    case "GOOGLE":
+      // Google AI keys start with "AIzaSy"
+      if (!key.startsWith("AIzaSy")) {
+        return "Google AI keys must start with \"AIzaSy\". Check that you copied the full key.";
+      }
+      if (key.length < 30) {
+        return "This Google AI key looks too short. Keys are typically 39 characters.";
+      }
+      return null;
+
+    default:
+      return null;
+  }
+}
+
 export async function getApiKeyStatuses(): Promise<ApiKeyStatus[]> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -86,6 +127,10 @@ export async function validateApiKey(
   const trimmed = rawKey.trim();
   if (!trimmed) return { error: "API key cannot be empty" };
 
+  // Provider-specific format validation before making a network call
+  const formatError = validateKeyFormat(provider, trimmed);
+  if (formatError) return { error: formatError };
+
   const model = requestedModel?.trim() || defaultModelForProvider(provider);
   const validation = await pingProviderKey({
     provider,
@@ -122,6 +167,10 @@ export async function upsertApiKey(
   const trimmed = rawKey.trim();
   if (!trimmed) return { error: "API key cannot be empty" };
   if (trimmed.length < 8) return { error: "API key is too short" };
+
+  // Provider-specific format validation
+  const formatError = validateKeyFormat(provider, trimmed);
+  if (formatError) return { error: formatError };
 
   const defaultModel =
     options?.defaultModel?.trim() || defaultModelForProvider(provider);

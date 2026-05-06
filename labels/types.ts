@@ -155,6 +155,8 @@ export type AppLabels = {
       };
       setupApiKeysMessage: string;
       setupApiKeysToast: string;
+      setupApiKeysNotification: string;
+      setupApiKeysLinkCta: string;
       diligenceStartToast: string;
       insightsHeading: string;
       insightsEmpty: string;

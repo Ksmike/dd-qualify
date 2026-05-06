@@ -1,6 +1,8 @@
 "use client";
 
 import { toast } from "@heroui/react";
+import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuBot, LuCirclePlay, LuRefreshCw } from "react-icons/lu";
@@ -112,6 +114,8 @@ type ProjectDocumentsPanelLabels = {
   diligenceStages: Record<DiligenceStageName, string>;
   setupApiKeysMessage: string;
   setupApiKeysToast: string;
+  setupApiKeysNotification: string;
+  setupApiKeysLinkCta: string;
   diligenceStartToast: string;
   insightsHeading: string;
   insightsEmpty: string;
@@ -166,6 +170,33 @@ function formatCurrency(value: number | null): string {
   return `$${value.toFixed(4)}`;
 }
 
+const listItemTransition = {
+  type: "spring",
+  stiffness: 420,
+  damping: 34,
+  mass: 0.6,
+};
+
+const listItemAnimation = {
+  initial: { opacity: 0, y: 10, scale: 0.985 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -8, scale: 0.985 },
+};
+
+function uploadStatusClassName(status: UploadItemStatus): string {
+  if (status === "uploaded") return "bg-success/15 text-success";
+  if (status === "failed") return "bg-danger/15 text-danger";
+  if (status === "uploading") return "bg-warning/15 text-warning";
+  return "bg-content2 text-foreground/80";
+}
+
+function documentStatusClassName(status: ProjectDocumentProcessingStatus): string {
+  if (status === "PROCESSED") return "bg-success/15 text-success";
+  if (status === "FAILED") return "bg-danger/15 text-danger";
+  if (status === "PROCESSING") return "bg-warning/15 text-warning";
+  return "bg-content2 text-foreground/80";
+}
+
 export function ProjectDocumentsPanel({
   projectId,
   projectStatus,
@@ -188,10 +219,16 @@ export function ProjectDocumentsPanel({
   const [isStartingDiligence, setIsStartingDiligence] = useState(false);
   const [isRetryingDiligence, setIsRetryingDiligence] = useState(false);
   const [isCancellingDiligence, setIsCancellingDiligence] = useState(false);
+  const [showApiKeyNotice, setShowApiKeyNotice] = useState(false);
+  const [beDiligentShakeNonce, setBeDiligentShakeNonce] = useState(0);
   const canStartDiligence =
     projectStatus === "draft" ||
     projectStatus === "reviewed" ||
     projectStatus === "complete";
+  const isDiligenceInProgress =
+    diligenceJob?.status === "QUEUED" ||
+    diligenceJob?.status === "RUNNING" ||
+    diligenceJob?.status === "WAITING_INPUT";
 
   const enabledApiProviders = apiKeyStatuses
     .filter((status) => status.isSet && status.enabled)
@@ -400,6 +437,7 @@ export function ProjectDocumentsPanel({
     uploaded: labels.uploadStatusUploaded,
     failed: labels.uploadStatusFailed,
   };
+  const visibleUploadItems = uploadItems.filter((item) => item.status !== "uploaded");
 
   function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -425,8 +463,9 @@ export function ProjectDocumentsPanel({
 
   async function handleBeDiligent() {
     if (!hasAnyApiKeys) {
-      toast.warning(labels.setupApiKeysToast);
-      window.open("/settings", "_blank", "noopener,noreferrer");
+      setShowApiKeyNotice(true);
+      setBeDiligentShakeNonce((currentNonce) => currentNonce + 1);
+      window.dispatchEvent(new CustomEvent("ddq:highlight-settings-nav"));
       return;
     }
     if (!canStartDiligence) {
@@ -519,83 +558,93 @@ export function ProjectDocumentsPanel({
   }
 
   return (
-    <div className="space-y-4">
-      <section className="space-y-4 rounded-xl border border-divider bg-content1 p-6">
+    <div className="flex flex-col gap-4">
+      <section className="order-2 space-y-4 rounded-xl border border-divider bg-content1 p-6">
         <h2 className="text-lg font-semibold text-foreground">
           {labels.documentsHeading}
         </h2>
 
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-            isDragActive
-              ? "border-primary bg-primary/10"
-              : "border-divider bg-background"
-          }`}
-        >
-          <p className="text-sm font-medium text-foreground">{labels.dropzoneTitle}</p>
-          <p className="mt-1 text-xs text-foreground/70">{labels.dropzoneHint}</p>
-          {isUploading && (
-            <p className="mt-3 text-xs font-medium text-warning">
-              {labels.uploadInProgress}
-            </p>
-          )}
-          <label
-            htmlFor="files"
-            className="mt-4 inline-block cursor-pointer rounded-md border border-divider bg-content1 px-3 py-2 text-xs font-medium text-foreground hover:bg-content2"
+        {!isDiligenceInProgress && (
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+              isDragActive
+                ? "border-primary bg-primary/10"
+                : "border-divider bg-background"
+            }`}
           >
-            {labels.fileInputLabel}
-          </label>
-          <input
-            ref={fileInputRef}
-            id="files"
-            name="files"
-            type="file"
-            multiple
-            accept=".txt,.docx,.pages,.pdf,.ppt,.pptx,.key,.keynote"
-            onChange={handleInputChange}
-            className="sr-only"
-          />
-        </div>
+            <p className="text-sm font-medium text-foreground">{labels.dropzoneTitle}</p>
+            <p className="mt-1 text-xs text-foreground/70">{labels.dropzoneHint}</p>
+            {isUploading && (
+              <p className="mt-3 text-xs font-medium text-warning">
+                {labels.uploadInProgress}
+              </p>
+            )}
+            <label
+              htmlFor="files"
+              className="mt-4 inline-block cursor-pointer rounded-md border border-divider bg-content1 px-3 py-2 text-xs font-medium text-foreground hover:bg-content2"
+            >
+              {labels.fileInputLabel}
+            </label>
+            <input
+              ref={fileInputRef}
+              id="files"
+              name="files"
+              type="file"
+              multiple
+              accept=".txt,.docx,.pages,.pdf,.ppt,.pptx,.key,.keynote"
+              onChange={handleInputChange}
+              className="sr-only"
+            />
+          </div>
+        )}
 
-        {uploadItems.length > 0 && (
+        {!isDiligenceInProgress && visibleUploadItems.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">
               {labels.uploadQueueHeading}
             </p>
-            <ul className="space-y-2">
-              {uploadItems.map((item) => (
-                <li
-                  key={item.key}
-                  className="rounded-md border border-divider bg-background px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.filename}</p>
-                      <p className="text-xs text-foreground/60">{formatSize(item.size)}</p>
+            <motion.ul layout className="space-y-2">
+              <AnimatePresence initial={false}>
+                {visibleUploadItems.map((item) => (
+                  <motion.li
+                    layout
+                    key={item.key}
+                    initial={listItemAnimation.initial}
+                    animate={listItemAnimation.animate}
+                    exit={listItemAnimation.exit}
+                    transition={listItemTransition}
+                    className="rounded-md border border-divider bg-background px-3 py-2 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{item.filename}</p>
+                        <p className="text-xs text-foreground/60">{formatSize(item.size)}</p>
+                      </div>
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.span
+                          key={`${item.key}-${item.status}`}
+                          initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                          transition={{ duration: 0.18 }}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            uploadStatusClassName(item.status)
+                          } ${item.status === "uploading" ? "animate-pulse" : ""}`}
+                        >
+                          {uploadStatusText[item.status]}
+                        </motion.span>
+                      </AnimatePresence>
                     </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        item.status === "uploaded"
-                          ? "bg-success/15 text-success"
-                          : item.status === "failed"
-                            ? "bg-danger/15 text-danger"
-                            : item.status === "uploading"
-                              ? "bg-warning/15 text-warning"
-                              : "bg-content2 text-foreground/80"
-                      }`}
-                    >
-                      {uploadStatusText[item.status]}
-                    </span>
-                  </div>
-                  {item.error && (
-                    <p className="mt-2 text-xs text-danger">{item.error}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    {item.error && (
+                      <p className="mt-2 text-xs text-danger">{item.error}</p>
+                    )}
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </motion.ul>
           </div>
         )}
 
@@ -610,77 +659,87 @@ export function ProjectDocumentsPanel({
         ) : documents.length === 0 ? (
           <p className="text-sm text-foreground/70">{labels.emptyDocuments}</p>
         ) : (
-          <ul className="space-y-2">
-            {documents.map((document) => (
-              <li
-                key={document.pathname}
-                className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {document.filename}
-                  </p>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    <p className="text-xs text-foreground/60">
-                      {formatSize(document.size)}
+          <motion.ul layout className="space-y-2">
+            <AnimatePresence initial={false}>
+              {documents.map((document) => (
+                <motion.li
+                  layout
+                  key={document.pathname}
+                  initial={listItemAnimation.initial}
+                  animate={listItemAnimation.animate}
+                  exit={listItemAnimation.exit}
+                  transition={listItemTransition}
+                  className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {document.filename}
                     </p>
-                    <span className="text-xs text-foreground/50">
-                      {labels.fileStatusLabel}:
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        document.processingStatus === "PROCESSED"
-                          ? "bg-success/15 text-success"
-                          : document.processingStatus === "FAILED"
-                            ? "bg-danger/15 text-danger"
-                            : document.processingStatus === "PROCESSING"
-                              ? "bg-warning/15 text-warning"
-                              : "bg-content2 text-foreground/80"
-                      }`}
-                    >
-                      {labels.fileProcessingStatuses[document.processingStatus]}
-                    </span>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="text-xs text-foreground/60">
+                        {formatSize(document.size)}
+                      </p>
+                      <span className="text-xs text-foreground/50">
+                        {labels.fileStatusLabel}:
+                      </span>
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.span
+                          key={`${document.pathname}-${document.processingStatus}`}
+                          initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                          transition={{ duration: 0.18 }}
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            documentStatusClassName(document.processingStatus)
+                          } ${document.processingStatus === "PROCESSING" ? "animate-pulse" : ""}`}
+                        >
+                          {labels.fileProcessingStatuses[document.processingStatus]}
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                    {document.processingError && (
+                      <p className="mt-1 text-xs text-danger">{document.processingError}</p>
+                    )}
                   </div>
-                  {document.processingError && (
-                    <p className="mt-1 text-xs text-danger">{document.processingError}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <a
-                    href={buildDocumentReadUrl(projectId, document.filename)}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    {labels.viewFileCta}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => void handleReprocessDocument(document)}
-                    disabled={reprocessingPaths.includes(document.pathname)}
-                    className="text-xs font-medium text-warning hover:underline disabled:opacity-50"
-                  >
-                    {reprocessingPaths.includes(document.pathname)
-                      ? labels.reprocessInProgress
-                      : labels.reprocessFileCta}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteDocument(document)}
-                    disabled={deletingPaths.includes(document.pathname)}
-                    className="text-xs font-medium text-danger hover:underline disabled:opacity-50"
-                  >
-                    {deletingPaths.includes(document.pathname)
-                      ? labels.deleteInProgress
-                      : labels.deleteFileCta}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <div className="flex items-center gap-4">
+                    <a
+                      href={buildDocumentReadUrl(projectId, document.filename)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      {labels.viewFileCta}
+                    </a>
+                    {document.processingStatus === "PROCESSED" && (
+                      <button
+                        type="button"
+                        onClick={() => void handleReprocessDocument(document)}
+                        disabled={reprocessingPaths.includes(document.pathname)}
+                        className="text-xs font-medium text-warning hover:underline disabled:opacity-50"
+                      >
+                        {reprocessingPaths.includes(document.pathname)
+                          ? labels.reprocessInProgress
+                          : labels.reprocessFileCta}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteDocument(document)}
+                      disabled={deletingPaths.includes(document.pathname)}
+                      className="text-xs font-medium text-danger hover:underline disabled:opacity-50"
+                    >
+                      {deletingPaths.includes(document.pathname)
+                        ? labels.deleteInProgress
+                        : labels.deleteFileCta}
+                    </button>
+                  </div>
+                </motion.li>
+              ))}
+            </AnimatePresence>
+          </motion.ul>
         )}
       </section>
 
       {documents.length > 0 && canStartDiligence && enabledApiProviders.length > 0 && (
-        <section className="space-y-3 rounded-xl border border-divider bg-content1 p-4">
+        <section className="order-3 space-y-3 rounded-xl border border-divider bg-content1 p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-sm">
               <span className="text-foreground/70">{labels.providerSelectionLabel}</span>
@@ -734,11 +793,17 @@ export function ProjectDocumentsPanel({
       )}
 
       {documents.length > 0 && (
-        <div className="flex justify-end">
-          <button
+        <div className="order-4 flex justify-end">
+          <motion.button
             type="button"
             onClick={() => void handleBeDiligent()}
             disabled={isStartingDiligence || !canStartDiligence}
+            animate={
+              beDiligentShakeNonce > 0
+                ? { x: [0, -7, 7, -6, 6, -3, 3, 0] }
+                : { x: 0 }
+            }
+            transition={{ duration: 0.45, ease: "easeInOut" }}
             className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60 ${
               hasAnyApiKeys
                 ? "bg-success/20 text-success hover:opacity-90"
@@ -747,11 +812,33 @@ export function ProjectDocumentsPanel({
           >
             <LuCirclePlay aria-hidden="true" className="size-4" />
             {labels.beDiligentCta}
-          </button>
+          </motion.button>
         </div>
       )}
 
-      <section className="space-y-3 rounded-xl border border-divider bg-content1 p-4">
+      <AnimatePresence initial={false}>
+        {showApiKeyNotice && !hasAnyApiKeys && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.985 }}
+            transition={{ duration: 0.22 }}
+            className="order-5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3"
+          >
+            <div className="flex flex-wrap items-center gap-2 text-sm text-warning">
+              <span>{labels.setupApiKeysNotification}</span>
+              <Link
+                href="/settings"
+                className="font-semibold underline underline-offset-2 hover:opacity-85"
+              >
+                {labels.setupApiKeysLinkCta}
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <section className="order-1 space-y-3 rounded-xl border border-divider bg-content1 p-4">
         <div className="flex items-center gap-2">
           <LuBot aria-hidden="true" className="size-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">

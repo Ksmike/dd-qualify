@@ -109,6 +109,9 @@ export const appLabels: AppLabels["app"] = {
     },
     setupApiKeysMessage: "Add at least one API key in Settings to run due diligence.",
     setupApiKeysToast: "No API keys found. Opening Settings in a new tab.",
+    setupApiKeysNotification:
+      "No API keys found. Add one in Settings to run due diligence.",
+    setupApiKeysLinkCta: "Go to Settings",
     diligenceStartToast: "Due diligence started.",
     insightsHeading: "Reviewed insights",
     insightsEmpty: "No reviewed insights yet. Run due diligence to generate findings.",

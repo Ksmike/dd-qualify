@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiChevronLeft } from "react-icons/fi";
@@ -34,6 +35,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const projectMatch = pathname.match(/^\/project\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
+  const [highlightSettings, setHighlightSettings] = useState(false);
   const [projectSidebarData, setProjectSidebarData] = useState<{
     id: string;
     name: string;
@@ -58,6 +60,18 @@ export function Sidebar() {
     };
   }, [projectId]);
 
+  useEffect(() => {
+    function handleHighlightSettings() {
+      setHighlightSettings(true);
+      window.setTimeout(() => setHighlightSettings(false), 2200);
+    }
+
+    window.addEventListener("ddq:highlight-settings-nav", handleHighlightSettings);
+    return () => {
+      window.removeEventListener("ddq:highlight-settings-nav", handleHighlightSettings);
+    };
+  }, []);
+
   return (
     <aside className="hidden md:flex w-64 flex-col border-r border-divider bg-content1 p-4">
       <nav className="flex flex-1 flex-col">
@@ -66,6 +80,7 @@ export function Sidebar() {
             projectId={projectId}
             projectSidebarData={projectSidebarData}
             pathname={pathname}
+            highlightSettings={highlightSettings}
           />
         ) : (
           <DefaultNav pathname={pathname} />
@@ -98,6 +113,7 @@ function ProjectNav({
   projectId,
   projectSidebarData,
   pathname,
+  highlightSettings,
 }: {
   projectId: string;
   projectSidebarData: {
@@ -107,6 +123,7 @@ function ProjectNav({
     hasReports: boolean;
   } | null;
   pathname: string;
+  highlightSettings: boolean;
 }) {
   const projectSubNav = buildProjectSubNav({
     hasInsights: projectSidebarData?.hasInsights ?? false,
@@ -146,11 +163,24 @@ function ProjectNav({
 
       <div className="my-3 border-t border-divider" />
 
-      <NavLink
-        href="/settings"
-        label="Settings"
-        isActive={pathname === "/settings"}
-      />
+      <motion.div
+        animate={
+          highlightSettings
+            ? {
+                x: [0, -5, 5, -3, 3, 0],
+                scale: [1, 1.02, 1],
+              }
+            : { x: 0, scale: 1 }
+        }
+        transition={{ duration: 0.55, ease: "easeInOut" }}
+        className={highlightSettings ? "rounded-md ring-2 ring-warning/45" : ""}
+      >
+        <NavLink
+          href="/settings"
+          label="Settings"
+          isActive={pathname === "/settings"}
+        />
+      </motion.div>
     </div>
   );
 }
