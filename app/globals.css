@@ -1,34 +1,63 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-/* Mythras palette overrides — warm off-white bg, coral accent */
-:root {
-  --background: oklch(97.6% 0.010 90);
-  --foreground: oklch(21.1% 0 0);
-  --surface: oklch(94.8% 0.007 90);
-  --surface-secondary: oklch(92.0% 0.006 90);
-  --surface-tertiary: oklch(89.5% 0.008 90);
-  --surface-foreground: oklch(21.1% 0 0);
-  --surface-secondary-foreground: oklch(21.1% 0 0);
-  --accent: oklch(74% 0.120 33);
-  --accent-foreground: oklch(100% 0 0);
-  --muted: oklch(48% 0 0);
-  --border: oklch(92% 0 0);
-  --separator: oklch(90% 0 0);
-  --field-background: oklch(100% 0 0);
-  --radius: 0.375rem;
-}
-
+/* ── Tailwind theme tokens ────────────────────────────────────────────────── */
 @theme inline {
   --font-sans: var(--font-inter);
 
-  /* Coral primary — used for buttons, badges, links */
+  /* Coral primary — identical in light and dark */
   --color-primary: oklch(74% 0.120 33);
   --color-primary-foreground: oklch(100% 0 0);
-  --color-primary-hover: oklch(70% 0.128 33);
 
-  /* HeroUI v2 compat aliases — bg-content1, bg-content2, border-divider */
-  --color-content1: oklch(94.8% 0.007 90);
-  --color-content2: oklch(92.0% 0.006 90);
-  --color-divider: oklch(92% 0 0);
+  /* Map HeroUI surface tokens → v2-compat utility names.
+     Because these reference CSS variables, dark-mode overrides below
+     are picked up automatically by bg-content1, border-divider, etc. */
+  --color-content1: var(--surface);
+  --color-content2: var(--surface-secondary);
+  --color-divider: var(--border);
+}
+
+/* ── Brand theme overrides ────────────────────────────────────────────────── */
+/* Must sit inside @layer base so HeroUI's .dark rules aren't overridden by
+   an unlayered :root block with higher implicit specificity. */
+@layer base {
+  /* Light — Mythras warm palette */
+  :root,
+  .light,
+  [data-theme="light"],
+  [data-theme="default"] {
+    --background:              oklch(97.6% 0.010 90);
+    --foreground:              oklch(21.1% 0 0);
+    --surface:                 oklch(94.8% 0.007 90);
+    --surface-foreground:      oklch(21.1% 0 0);
+    --surface-secondary:       oklch(92.0% 0.006 90);
+    --surface-secondary-foreground: oklch(21.1% 0 0);
+    --surface-tertiary:        oklch(89.5% 0.008 90);
+    --accent:                  oklch(74% 0.120 33);
+    --accent-foreground:       oklch(100% 0 0);
+    --muted:                   oklch(48% 0 0);
+    --border:                  oklch(92% 0 0);
+    --separator:               oklch(90% 0 0);
+    --field-background:        oklch(100% 0 0);
+    --radius:                  0.375rem;
+  }
+
+  /* Dark — warm near-black with coral accent preserved */
+  .dark,
+  [data-theme="dark"] {
+    --background:              oklch(12% 0.008 90);
+    --foreground:              oklch(95% 0.006 90);
+    --surface:                 oklch(17% 0.008 90);
+    --surface-foreground:      oklch(95% 0.006 90);
+    --surface-secondary:       oklch(22% 0.008 90);
+    --surface-secondary-foreground: oklch(95% 0.006 90);
+    --surface-tertiary:        oklch(26% 0.008 90);
+    --accent:                  oklch(74% 0.120 33);
+    --accent-foreground:       oklch(100% 0 0);
+    --muted:                   oklch(60% 0 0);
+    --border:                  oklch(28% 0.004 90);
+    --separator:               oklch(26% 0.004 90);
+    --field-background:        oklch(17% 0.008 90);
+    --radius:                  0.375rem;
+  }
 }

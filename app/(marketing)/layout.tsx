@@ -18,7 +18,7 @@ export default async function MarketingLayout({
 
   return (
     <>
-      <Header user={user} />
+      <Header user={user} variant="dark" />
       <main className="flex-1">{children}</main>
       <Footer />
     </>

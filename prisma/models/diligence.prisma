@@ -1,0 +1,238 @@
+enum DiligenceJobStatus {
+    QUEUED
+    RUNNING
+    WAITING_INPUT
+    COMPLETED
+    FAILED
+    CANCELED
+}
+
+enum DiligenceStageName {
+    DOCUMENT_EXTRACTION
+    DOCUMENT_CLASSIFICATION
+    ENTITY_EXTRACTION
+    CLAIM_EXTRACTION
+    RISK_EXTRACTION
+    CROSS_DOCUMENT_VALIDATION
+    CONTRADICTION_DETECTION
+    EVIDENCE_GRAPH_GENERATION
+    EXECUTIVE_SUMMARY_GENERATION
+    FINAL_REPORT_GENERATION
+}
+
+enum DiligenceStageStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    FAILED
+    SKIPPED
+}
+
+enum DiligenceArtifactType {
+    ORIGINAL_DOCUMENT
+    EXTRACTED_TEXT
+    OCR_OUTPUT
+    DOCUMENT_CHUNK
+    EMBEDDING_SNAPSHOT
+    INTERMEDIATE_JSON
+    MODEL_TRACE
+    EVIDENCE_MAP
+    GENERATED_REPORT
+    EXPORT_BUNDLE
+}
+
+enum DiligenceStorageProvider {
+    VERCEL_BLOB
+    DATABASE
+    JSON_COLUMN
+    VECTOR_DATABASE
+    OBJECT_STORAGE
+    TEMPORARY_STORAGE
+}
+
+enum DiligenceFindingType {
+    RISK
+    OPPORTUNITY
+    WARNING
+    OBSERVATION
+}
+
+enum DiligenceClaimStatus {
+    SUPPORTED
+    CONTRADICTED
+    INCONCLUSIVE
+}
+
+model DiligenceJob {
+    id                String             @id @default(cuid())
+    projectId         String
+    userId            String
+    userApiKeyId      String?
+    selectedProvider  ApiKeyProvider
+    selectedModel     String
+    fallbackProviders Json?
+    status            DiligenceJobStatus @default(QUEUED)
+    currentStage      DiligenceStageName?
+    progressPercent   Int                @default(0)
+    attemptCount      Int                @default(0)
+    inputDocumentCount Int               @default(0)
+    tokenUsageTotal   Int                @default(0)
+    estimatedCostUsd  Float?
+    priority          Int                @default(0)
+    workflowRunId     String?
+    startedAt         DateTime?
+    completedAt       DateTime?
+    lastHeartbeatAt   DateTime?
+    errorMessage      String?
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userApiKey UserApiKey? @relation(fields: [userApiKeyId], references: [id], onDelete: SetNull)
+
+    stageRuns DiligenceStageRun[]
+    artifacts DiligenceArtifact[]
+    findings DiligenceFinding[]
+    claims DiligenceClaim[]
+    entities DiligenceEntity[]
+    contradictions DiligenceContradiction[]
+
+    @@index([projectId, createdAt])
+    @@index([userId, createdAt])
+    @@index([status])
+    @@index([status, priority])
+    @@index([workflowRunId])
+}
+
+model DiligenceStageRun {
+    id                 String               @id @default(cuid())
+    jobId              String
+    stage              DiligenceStageName
+    status             DiligenceStageStatus @default(PENDING)
+    attempts           Int                  @default(0)
+    provider           ApiKeyProvider?
+    model              String?
+    tokenUsageTotal    Int                  @default(0)
+    estimatedCostUsd   Float?
+    inputArtifactCount Int                  @default(0)
+    outputArtifactCount Int                 @default(0)
+    outputJson         Json?
+    errorMessage       String?
+    startedAt          DateTime?
+    completedAt        DateTime?
+    createdAt          DateTime             @default(now())
+    updatedAt          DateTime             @updatedAt
+
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+    @@unique([jobId, stage])
+    @@index([jobId, status])
+}
+
+model DiligenceArtifact {
+    id              String                  @id @default(cuid())
+    projectId       String
+    jobId           String
+    userId          String
+    stage           DiligenceStageName?
+    type            DiligenceArtifactType
+    storageProvider DiligenceStorageProvider
+    storageKey      String
+    mimeType        String?
+    sizeBytes       Int?
+    checksum        String?
+    metadata        Json?
+    createdAt       DateTime                @default(now())
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([projectId, type])
+    @@index([jobId, stage])
+    @@index([storageProvider])
+}
+
+model DiligenceEntity {
+    id         String    @id @default(cuid())
+    projectId  String
+    jobId      String
+    userId     String
+    name       String
+    kind       String
+    confidence Float?
+    metadata   Json?
+    createdAt  DateTime  @default(now())
+    updatedAt  DateTime  @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([projectId, kind])
+    @@index([jobId])
+}
+
+model DiligenceClaim {
+    id               String              @id @default(cuid())
+    projectId        String
+    jobId            String
+    userId           String
+    claimText        String
+    status           DiligenceClaimStatus @default(INCONCLUSIVE)
+    confidence       Float?
+    evidenceRefs     Json?
+    contradictions   Json?
+    createdAt        DateTime            @default(now())
+    updatedAt        DateTime            @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([projectId, status])
+    @@index([jobId])
+}
+
+model DiligenceFinding {
+    id          String              @id @default(cuid())
+    projectId   String
+    jobId       String
+    userId      String
+    type        DiligenceFindingType
+    title       String
+    summary     String
+    confidence  Float?
+    evidenceRefs Json?
+    metadata    Json?
+    createdAt   DateTime            @default(now())
+    updatedAt   DateTime            @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([projectId, type])
+    @@index([jobId])
+}
+
+model DiligenceContradiction {
+    id           String   @id @default(cuid())
+    projectId    String
+    jobId        String
+    userId       String
+    statementA   String
+    statementB   String
+    confidence   Float?
+    evidenceRefs Json?
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    job DiligenceJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([projectId])
+    @@index([jobId])
+}

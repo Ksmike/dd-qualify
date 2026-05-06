@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 const PROJECT_STATUSES = [
   "draft",
   "inprogress",
+  "reviewed",
   "complete",
   "rejected",
 ] as const;
@@ -95,6 +96,20 @@ export const ProjectModel = {
       },
       data: {
         status: input.status,
+      },
+    });
+
+    return result.count > 0;
+  },
+
+  async deleteForUser(input: {
+    projectId: string;
+    userId: string;
+  }): Promise<boolean> {
+    const result = await db.project.deleteMany({
+      where: {
+        id: input.projectId,
+        userId: input.userId,
       },
     });
 

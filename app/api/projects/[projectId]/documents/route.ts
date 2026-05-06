@@ -1,5 +1,6 @@
 import { list, put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
+import { ProjectDocumentModel } from "@/lib/models/ProjectDocumentModel";
 import {
   buildProjectBlobPath,
   buildProjectBlobPrefix,
@@ -83,15 +84,30 @@ export async function POST(
       contentType: file.type || undefined,
     });
 
+    const projectDocument = await ProjectDocumentModel.upsertFromBlob({
+      projectId: sanitizedProjectId,
+      userId,
+      filename: sanitizedFilename,
+      pathname: blob.pathname,
+      sizeBytes: file.size,
+      contentType: file.type || null,
+      resetProcessingStatus: true,
+    });
+
     return Response.json(
       {
         document: {
+          id: projectDocument.id,
           filename: sanitizedFilename,
           pathname: blob.pathname,
           url: blob.url,
           downloadUrl: blob.downloadUrl,
           size: file.size,
           contentType: file.type || null,
+          processingStatus: "QUEUED",
+          processingError: null,
+          lastProcessedAt: null,
+          reprocessCount: 0,
         },
       },
       { status: 201 }
@@ -124,15 +140,44 @@ export async function GET(
 
   try {
     const { blobs, cursor, hasMore } = await list({ prefix });
-    const documents = blobs.map((blob) => ({
-      filename: getFilenameFromProjectBlobPath(blob.pathname, prefix),
-      pathname: blob.pathname,
-      size: blob.size,
-      uploadedAt: blob.uploadedAt,
-      url: blob.url,
-      downloadUrl: blob.downloadUrl,
-      etag: blob.etag,
-    }));
+    for (const blob of blobs) {
+      const filename = getFilenameFromProjectBlobPath(blob.pathname, prefix);
+      await ProjectDocumentModel.upsertFromBlob({
+        projectId: sanitizedProjectId,
+        userId,
+        filename,
+        pathname: blob.pathname,
+        sizeBytes: blob.size,
+        contentType: null,
+      });
+    }
+
+    const projectDocuments = await ProjectDocumentModel.listForProject({
+      projectId: sanitizedProjectId,
+      userId,
+    });
+    const documentByPath = new Map(
+      projectDocuments.map((document) => [document.pathname, document] as const)
+    );
+
+    const documents = blobs.map((blob) => {
+      const filename = getFilenameFromProjectBlobPath(blob.pathname, prefix);
+      const storedDocument = documentByPath.get(blob.pathname);
+      return {
+        id: storedDocument?.id ?? `${sanitizedProjectId}:${blob.pathname}`,
+        filename,
+        pathname: blob.pathname,
+        size: blob.size,
+        uploadedAt: blob.uploadedAt,
+        processingStatus: storedDocument?.processingStatus ?? "QUEUED",
+        processingError: storedDocument?.processingError ?? null,
+        lastProcessedAt: storedDocument?.lastProcessedAt ?? null,
+        reprocessCount: storedDocument?.reprocessCount ?? 0,
+        url: blob.url,
+        downloadUrl: blob.downloadUrl,
+        etag: blob.etag,
+      };
+    });
 
     return Response.json({ documents, cursor, hasMore });
   } catch {

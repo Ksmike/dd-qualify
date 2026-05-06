@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const authMock = vi.fn();
 const putMock = vi.fn();
 const listMock = vi.fn();
+const projectDocumentUpsertMock = vi.fn();
+const projectDocumentFindManyMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   auth: authMock,
@@ -13,9 +15,20 @@ vi.mock("@vercel/blob", () => ({
   list: listMock,
 }));
 
+vi.mock("@/lib/db", () => ({
+  db: {
+    projectDocument: {
+      upsert: projectDocumentUpsertMock,
+      findMany: projectDocumentFindManyMock,
+    },
+  },
+}));
+
 describe("projects documents API route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    projectDocumentFindManyMock.mockResolvedValue([]);
+    projectDocumentUpsertMock.mockResolvedValue({ id: "doc-1" });
   });
 
   it("uploads a supported private document into user/project path", async () => {

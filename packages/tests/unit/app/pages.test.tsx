@@ -45,6 +45,11 @@ vi.mock("@/components/settings/ApiKeySection", () => ({
 vi.mock("@/lib/actions/apiKeys", () => ({
   getApiKeyStatuses: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("@/lib/actions/project", () => ({
+  createProject: vi.fn(),
+  startProjectDueDiligence: vi.fn(),
+  retryProjectDueDiligence: vi.fn(),
+}));
 
 // Mock auth for marketing layout
 const mockAuth = vi.fn().mockResolvedValue(null);
@@ -77,6 +82,13 @@ const mockProjectModel = {
 };
 vi.mock("@/lib/models/ProjectModel", () => ({
   ProjectModel: mockProjectModel,
+}));
+
+const mockDiligenceJobModel = {
+  findLatestWithStagesForProject: vi.fn().mockResolvedValue(null),
+};
+vi.mock("@/lib/models/DiligenceJobModel", () => ({
+  DiligenceJobModel: mockDiligenceJobModel,
 }));
 
 // Mock labels for HomePage
@@ -137,6 +149,7 @@ vi.mock("@/labels", () => ({
           statuses: {
             draft: "draft",
             inprogress: "in progress",
+            reviewed: "reviewed",
             complete: "complete",
             rejected: "rejected",
           },
@@ -149,6 +162,12 @@ vi.mock("@/labels", () => ({
           copyIdAriaLabel: "Copy project ID",
           copySuccessToast: "Project ID copied to clipboard.",
           copyErrorToast: "Could not copy project ID.",
+          deleteProjectCta: "Delete project",
+          deleteProjectConfirm:
+            "Delete this project? Files, diligence jobs, and findings will be removed permanently.",
+          deleteProjectInProgress: "Deleting...",
+          deleteProjectSuccessToast: "Project deleted.",
+          deleteProjectErrorToast: "Failed to delete project.",
           documentsHeading: "Files",
           fileInputLabel: "Upload files",
           uploadInProgress: "Uploading...",
@@ -167,12 +186,71 @@ vi.mock("@/labels", () => ({
           deleteFileCta: "Delete",
           deleteInProgress: "Deleting...",
           deleteError: "Failed to delete file.",
+          reprocessFileCta: "Re-process",
+          reprocessInProgress: "Queueing...",
+          reprocessError: "Failed to queue file for re-processing.",
+          fileStatusLabel: "File status",
+          fileProcessingStatuses: {
+            QUEUED: "queued",
+            PROCESSING: "processing",
+            PROCESSED: "processed",
+            FAILED: "failed",
+          },
           beDiligentCta: "Be Diligent",
+          providerSelectionLabel: "Provider",
+          modelInputLabel: "Model",
+          modelInputPlaceholder: "gpt-4o-mini",
+          fallbackProvidersLabel: "Fallback providers",
+          retryDiligenceCta: "Retry diligence",
+          cancelDiligenceCta: "Cancel diligence",
+          cancelDiligenceConfirm: "Cancel the running diligence workflow?",
+          cancelDiligenceToast: "Diligence cancelled.",
+          cancelDiligenceErrorToast: "Failed to cancel diligence.",
+          diligenceProgressHeading: "Diligence worker",
+          diligenceStatusLabel: "Job status",
+          diligenceCurrentStageLabel: "Current stage",
+          diligenceJobIdLabel: "Job ID",
+          diligenceTokenUsageLabel: "Token usage",
+          diligenceCostEstimateLabel: "Estimated cost",
+          diligenceLastErrorLabel: "Last error",
+          diligenceNoJobMessage: "No diligence job has started yet.",
+          diligenceJobCreatedToast: "Due diligence job initialized.",
+          diligenceRunningToast: "Diligence workflow running.",
+          diligenceCompletedToast: "Due diligence job completed.",
+          diligenceRetryToast: "Diligence retry started.",
+          diligenceRetryErrorToast: "Failed to retry due diligence.",
+          diligenceStatuses: {
+            QUEUED: "queued",
+            RUNNING: "running",
+            WAITING_INPUT: "waiting for input",
+            COMPLETED: "completed",
+            FAILED: "failed",
+            CANCELED: "canceled",
+          },
+          diligenceStages: {
+            DOCUMENT_EXTRACTION: "document extraction",
+            DOCUMENT_CLASSIFICATION: "document classification",
+            ENTITY_EXTRACTION: "entity extraction",
+            CLAIM_EXTRACTION: "claim extraction",
+            RISK_EXTRACTION: "risk extraction",
+            CROSS_DOCUMENT_VALIDATION: "cross-document validation",
+            CONTRADICTION_DETECTION: "contradiction detection",
+            EVIDENCE_GRAPH_GENERATION: "evidence graph generation",
+            EXECUTIVE_SUMMARY_GENERATION: "executive summary generation",
+            FINAL_REPORT_GENERATION: "final report generation",
+          },
           setupApiKeysMessage:
             "Add at least one API key in Settings to run due diligence.",
           setupApiKeysToast:
             "No API keys found. Opening Settings in a new tab.",
-          diligenceStartToast: "Due diligence workflow start is coming next.",
+          diligenceStartToast: "Due diligence started.",
+          insightsHeading: "Reviewed insights",
+          insightsEmpty:
+            "No reviewed insights yet. Run due diligence to generate findings.",
+          insightsRisksHeading: "Top risks",
+          insightsClaimsHeading: "Key claims",
+          insightsEntitiesHeading: "Core entities",
+          insightsContradictionsHeading: "Contradictions",
         },
         projectCreation: {
           heading: "Create project",
@@ -299,7 +377,6 @@ describe("ProjectCreationPage", () => {
       screen.getByRole("heading", { name: "Create project" })
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Files")).toBeInTheDocument();
   });
 });
 
@@ -363,9 +440,7 @@ describe("HomePage", () => {
     const { default: HomePage } = await import("@/app/(marketing)/page");
     render(<HomePage />);
     expect(
-      screen.getByRole("heading", {
-        name: /DD Qualify helps investors underwrite faster/,
-      })
+      screen.getByRole("heading", { name: /Triangulated automatically/i })
     ).toBeInTheDocument();
   });
 

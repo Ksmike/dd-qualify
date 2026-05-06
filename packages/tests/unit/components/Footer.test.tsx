@@ -12,7 +12,7 @@ describe("Footer", () => {
   it("renders the tagline", () => {
     render(<Footer />);
     expect(
-      screen.getByText("Automated due diligence for private-market deal teams.")
+      screen.getByText("Source-of-truth intelligence for private-market deal teams.")
     ).toBeInTheDocument();
   });
 });

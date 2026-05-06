@@ -1,5 +1,7 @@
 import { del, get } from "@vercel/blob";
 import { auth } from "@/lib/auth";
+import { ProjectDocumentModel } from "@/lib/models/ProjectDocumentModel";
+import { db } from "@/lib/db";
 import {
   buildProjectBlobPath,
   sanitizeDocumentPathSegments,
@@ -115,8 +117,73 @@ export async function DELETE(
 
   try {
     await del(pathname);
+    await ProjectDocumentModel.deleteForProjectPath({
+      projectId: sanitizedProjectId,
+      userId,
+      pathname,
+    });
     return Response.json({ deleted: true }, { status: 200 });
   } catch {
     return Response.json({ error: "Failed to delete document." }, { status: 500 });
   }
+}
+
+export async function PATCH(
+  _request: Request,
+  {
+    params,
+  }: { params: Promise<{ projectId: string; documentPath: string[] }> }
+) {
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+  if (!userId) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { projectId, documentPath } = await params;
+  const sanitizedProjectId = sanitizeProjectId(projectId);
+  if (!sanitizedProjectId) {
+    return Response.json({ error: "Invalid project ID." }, { status: 400 });
+  }
+
+  const sanitizedDocumentPath = sanitizeDocumentPathSegments(documentPath);
+  if (!sanitizedDocumentPath) {
+    return Response.json(
+      {
+        error:
+          "Unsupported document format or path. Allowed: .txt, .docx, .pages, .pdf, .ppt, .pptx, .key, .keynote.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const pathname = buildProjectBlobPath(
+    userId,
+    sanitizedProjectId,
+    sanitizedDocumentPath
+  );
+  if (!pathname) {
+    return Response.json({ error: "Invalid storage path." }, { status: 400 });
+  }
+
+  const updateResult = await ProjectDocumentModel.markQueuedForProjectPath({
+    projectId: sanitizedProjectId,
+    userId,
+    pathname,
+  });
+  if (updateResult.count === 0) {
+    return Response.json({ error: "Document not found." }, { status: 404 });
+  }
+
+  await db.project.updateMany({
+    where: {
+      id: sanitizedProjectId,
+      userId,
+    },
+    data: {
+      status: "draft",
+    },
+  });
+
+  return Response.json({ reprocessQueued: true }, { status: 200 });
 }

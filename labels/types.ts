@@ -58,6 +58,7 @@ export type AppLabels = {
       statuses: {
         draft: string;
         inprogress: string;
+        reviewed: string;
         complete: string;
         rejected: string;
       };
@@ -70,6 +71,11 @@ export type AppLabels = {
       copyIdAriaLabel: string;
       copySuccessToast: string;
       copyErrorToast: string;
+      deleteProjectCta: string;
+      deleteProjectConfirm: string;
+      deleteProjectInProgress: string;
+      deleteProjectSuccessToast: string;
+      deleteProjectErrorToast: string;
       documentsHeading: string;
       fileInputLabel: string;
       uploadInProgress: string;
@@ -88,10 +94,117 @@ export type AppLabels = {
       deleteFileCta: string;
       deleteInProgress: string;
       deleteError: string;
+      reprocessFileCta: string;
+      reprocessInProgress: string;
+      reprocessError: string;
+      fileStatusLabel: string;
+      fileProcessingStatuses: {
+        QUEUED: string;
+        PROCESSING: string;
+        PROCESSED: string;
+        FAILED: string;
+      };
       beDiligentCta: string;
+      providerSelectionLabel: string;
+      modelInputLabel: string;
+      modelInputPlaceholder: string;
+      fallbackProvidersLabel: string;
+      retryDiligenceCta: string;
+      cancelDiligenceCta: string;
+      cancelDiligenceConfirm: string;
+      cancelDiligenceToast: string;
+      cancelDiligenceErrorToast: string;
+      diligenceProgressHeading: string;
+      diligenceStatusLabel: string;
+      diligenceCurrentStageLabel: string;
+      diligenceJobIdLabel: string;
+      diligenceTokenUsageLabel: string;
+      diligenceCostEstimateLabel: string;
+      diligenceLastErrorLabel: string;
+      diligenceNoJobMessage: string;
+      diligenceJobCreatedToast: string;
+      diligenceRunningToast: string;
+      diligenceCompletedToast: string;
+      diligenceRetryToast: string;
+      diligenceRetryErrorToast: string;
+      diligenceStatuses: {
+        QUEUED: string;
+        RUNNING: string;
+        WAITING_INPUT: string;
+        COMPLETED: string;
+        FAILED: string;
+        CANCELED: string;
+      };
+      diligenceStages: {
+        DOCUMENT_EXTRACTION: string;
+        DOCUMENT_CLASSIFICATION: string;
+        ENTITY_EXTRACTION: string;
+        CLAIM_EXTRACTION: string;
+        RISK_EXTRACTION: string;
+        CROSS_DOCUMENT_VALIDATION: string;
+        CONTRADICTION_DETECTION: string;
+        EVIDENCE_GRAPH_GENERATION: string;
+        EXECUTIVE_SUMMARY_GENERATION: string;
+        FINAL_REPORT_GENERATION: string;
+      };
       setupApiKeysMessage: string;
       setupApiKeysToast: string;
       diligenceStartToast: string;
+      insightsHeading: string;
+      insightsEmpty: string;
+      insightsRisksHeading: string;
+      insightsClaimsHeading: string;
+      insightsEntitiesHeading: string;
+      insightsContradictionsHeading: string;
+    };
+    insights: {
+      heading: string;
+      description: string;
+      empty: string;
+      findingsHeading: string;
+      claimsHeading: string;
+      entitiesHeading: string;
+      contradictionsHeading: string;
+      jobInfoHeading: string;
+      stagesHeading: string;
+      confidenceLabel: string;
+      statusLabel: string;
+      typeLabel: string;
+      modelLabel: string;
+      providerLabel: string;
+      tokensLabel: string;
+      costLabel: string;
+      createdLabel: string;
+      completedLabel: string;
+      findingTypes: {
+        RISK: string;
+        OPPORTUNITY: string;
+        WARNING: string;
+        OBSERVATION: string;
+      };
+      claimStatuses: {
+        SUPPORTED: string;
+        CONTRADICTED: string;
+        INCONCLUSIVE: string;
+      };
+    };
+    reports: {
+      heading: string;
+      description: string;
+      empty: string;
+      tableHeadType: string;
+      tableHeadStage: string;
+      tableHeadFormat: string;
+      tableHeadSize: string;
+      tableHeadDate: string;
+      tableHeadJobStatus: string;
+      tableHeadActions: string;
+      viewCta: string;
+      artifactTypes: {
+        GENERATED_REPORT: string;
+        EXPORT_BUNDLE: string;
+        EVIDENCE_MAP: string;
+      };
     };
     projectCreation: {
       heading: string;

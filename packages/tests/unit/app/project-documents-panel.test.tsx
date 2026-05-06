@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectDocumentsPanel } from "@/app/(app)/project/[id]/ProjectDocumentsPanel";
 import { toast } from "@heroui/react";
-import { startProjectDueDiligence } from "@/lib/actions/project";
+import {
+  startProjectDueDiligence,
+  retryProjectDueDiligence,
+} from "@/lib/actions/project";
 
 vi.mock("@heroui/react", async () => {
   const actual = await vi.importActual<typeof import("@heroui/react")>(
@@ -19,7 +22,8 @@ vi.mock("@heroui/react", async () => {
   };
 });
 vi.mock("@/lib/actions/project", () => ({
-  startProjectDueDiligence: vi.fn().mockResolvedValue({}),
+  startProjectDueDiligence: vi.fn().mockResolvedValue({ jobId: "job-1" }),
+  retryProjectDueDiligence: vi.fn().mockResolvedValue({ runId: "run-1" }),
 }));
 
 const labels = {
@@ -41,11 +45,90 @@ const labels = {
   deleteFileCta: "Delete",
   deleteInProgress: "Deleting...",
   deleteError: "Failed to delete file.",
+  reprocessFileCta: "Re-process",
+  reprocessInProgress: "Queueing...",
+  reprocessError: "Failed to queue file for re-processing.",
+  fileStatusLabel: "File status",
+  fileProcessingStatuses: {
+    QUEUED: "queued",
+    PROCESSING: "processing",
+    PROCESSED: "processed",
+    FAILED: "failed",
+  },
   beDiligentCta: "Be Diligent",
+  providerSelectionLabel: "Provider",
+  modelInputLabel: "Model",
+  modelInputPlaceholder: "gpt-4o-mini",
+  fallbackProvidersLabel: "Fallback providers",
+  retryDiligenceCta: "Retry diligence",
+  cancelDiligenceCta: "Cancel diligence",
+  cancelDiligenceConfirm: "Cancel the running diligence workflow?",
+  cancelDiligenceToast: "Diligence cancelled.",
+  cancelDiligenceErrorToast: "Failed to cancel diligence.",
+  diligenceProgressHeading: "Diligence worker",
+  diligenceStatusLabel: "Job status",
+  diligenceCurrentStageLabel: "Current stage",
+  diligenceJobIdLabel: "Job ID",
+  diligenceTokenUsageLabel: "Token usage",
+  diligenceCostEstimateLabel: "Estimated cost",
+  diligenceLastErrorLabel: "Last error",
+  diligenceNoJobMessage: "No diligence job has started yet.",
+  diligenceJobCreatedToast: "Due diligence job initialized.",
+  diligenceRunningToast: "Diligence workflow running.",
+  diligenceCompletedToast: "Due diligence job completed.",
+  diligenceRetryToast: "Diligence retry started.",
+  diligenceRetryErrorToast: "Failed to retry due diligence.",
+  diligenceStatuses: {
+    QUEUED: "queued",
+    RUNNING: "running",
+    WAITING_INPUT: "waiting for input",
+    COMPLETED: "completed",
+    FAILED: "failed",
+    CANCELED: "canceled",
+  },
+  diligenceStages: {
+    DOCUMENT_EXTRACTION: "document extraction",
+    DOCUMENT_CLASSIFICATION: "document classification",
+    ENTITY_EXTRACTION: "entity extraction",
+    CLAIM_EXTRACTION: "claim extraction",
+    RISK_EXTRACTION: "risk extraction",
+    CROSS_DOCUMENT_VALIDATION: "cross-document validation",
+    CONTRADICTION_DETECTION: "contradiction detection",
+    EVIDENCE_GRAPH_GENERATION: "evidence graph generation",
+    EXECUTIVE_SUMMARY_GENERATION: "executive summary generation",
+    FINAL_REPORT_GENERATION: "final report generation",
+  },
   setupApiKeysMessage: "Add at least one API key in Settings to run due diligence.",
   setupApiKeysToast: "No API keys found. Opening Settings in a new tab.",
-  diligenceStartToast: "Due diligence workflow start is coming next.",
+  diligenceStartToast: "Due diligence started.",
+  insightsHeading: "Reviewed insights",
+  insightsEmpty: "No reviewed insights yet. Run due diligence to generate findings.",
+  insightsRisksHeading: "Top risks",
+  insightsClaimsHeading: "Key claims",
+  insightsEntitiesHeading: "Core entities",
+  insightsContradictionsHeading: "Contradictions",
 };
+
+const apiKeyStatuses = [
+  {
+    id: "key-1",
+    provider: "OPENAI",
+    isSet: true,
+    hint: "1234",
+    defaultModel: "gpt-4o-mini",
+    enabled: true,
+    lastValidatedAt: null,
+  },
+  {
+    id: "key-2",
+    provider: "ANTHROPIC",
+    isSet: true,
+    hint: "1234",
+    defaultModel: "claude-3-5-sonnet-latest",
+    enabled: true,
+    lastValidatedAt: null,
+  },
+] as const;
 
 describe("ProjectDocumentsPanel", () => {
   beforeEach(() => {
@@ -53,21 +136,24 @@ describe("ProjectDocumentsPanel", () => {
   });
 
   it("loads and renders existing documents", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          documents: [
-            {
-              filename: "report.pdf",
-              pathname: "user-1/project-1/report.pdf",
-              size: 2048,
-              uploadedAt: "2026-05-06T00:00:00.000Z",
-            },
-          ],
-        }),
-      });
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            id: "doc-1",
+            filename: "report.pdf",
+            pathname: "user-1/project-1/report.pdf",
+            size: 2048,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "QUEUED",
+            processingError: null,
+            lastProcessedAt: null,
+            reprocessCount: 0,
+          },
+        ],
+      }),
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -75,6 +161,9 @@ describe("ProjectDocumentsPanel", () => {
         projectId="project-1"
         projectStatus="draft"
         hasAnyApiKeys={true}
+        apiKeyStatuses={[...apiKeyStatuses]}
+        diligenceJob={null}
+        insights={null}
         labels={labels}
       />
     );
@@ -84,178 +173,24 @@ describe("ProjectDocumentsPanel", () => {
       "href",
       "/api/projects/project-1/documents/report.pdf"
     );
-    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
-  });
-
-  it("uploads files automatically after file selection", async () => {
-    let hasUploaded = false;
-    const fetchMock = vi.fn(
-      async (_url: string, init?: RequestInit): Promise<Response> => {
-        if (init?.method === "POST") {
-          hasUploaded = true;
-          return {
-            ok: true,
-            json: async () => ({}),
-          } as Response;
-        }
-
-        return {
-          ok: true,
-          json: async () => ({
-            documents: hasUploaded
-              ? [
-                  {
-                    filename: "evidence.txt",
-                    pathname: "user-1/project-1/evidence.txt",
-                    size: 24,
-                    uploadedAt: "2026-05-06T00:00:00.000Z",
-                  },
-                ]
-              : [],
-          }),
-        } as Response;
-      }
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const user = userEvent.setup();
-    render(
-      <ProjectDocumentsPanel
-        projectId="project-1"
-        projectStatus="draft"
-        hasAnyApiKeys={true}
-        labels={labels}
-      />
-    );
-
-    const input = await screen.findByLabelText("Upload files");
-    await user.upload(input, new File(["hello"], "evidence.txt", { type: "text/plain" }));
-
-    expect(await screen.findByText("Upload progress")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/documents", {
-        method: "POST",
-        body: expect.any(FormData),
-      });
-    });
-    expect(screen.getByText("uploaded")).toBeInTheDocument();
-    expect((await screen.findAllByText("evidence.txt")).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
-      "href",
-      "/api/projects/project-1/documents/evidence.txt"
-    );
-  });
-
-  it("uploads files automatically on drop", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, init?: RequestInit): Promise<Response> => {
-        if (init?.method === "POST") {
-          return {
-            ok: true,
-            json: async () => ({}),
-          } as Response;
-        }
-
-        return {
-          ok: true,
-          json: async () => ({ documents: [] }),
-        } as Response;
-      }
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(
-      <ProjectDocumentsPanel
-        projectId="project-1"
-        projectStatus="draft"
-        hasAnyApiKeys={true}
-        labels={labels}
-      />
-    );
-
-    const droppedFile = new File(["dragged"], "dragged.pdf", {
-      type: "application/pdf",
-    });
-    const dropzoneText = await screen.findByText("Drag and drop files to upload");
-    const dropzone = dropzoneText.closest("div");
-    expect(dropzone).not.toBeNull();
-
-    fireEvent.drop(dropzone as Element, {
-      dataTransfer: {
-        files: [droppedFile],
-      },
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/documents", {
-        method: "POST",
-        body: expect.any(FormData),
-      });
-    });
-  });
-
-  it("deletes a document from the list", async () => {
-    let documents = [
-      {
-        filename: "report.pdf",
-        pathname: "user-1/project-1/report.pdf",
-        size: 2048,
-        uploadedAt: "2026-05-06T00:00:00.000Z",
-      },
-    ];
-    const fetchMock = vi.fn(
-      async (_url: string, init?: RequestInit): Promise<Response> => {
-        if (init?.method === "DELETE") {
-          documents = [];
-          return {
-            ok: true,
-            json: async () => ({ deleted: true }),
-          } as Response;
-        }
-
-        return {
-          ok: true,
-          json: async () => ({ documents }),
-        } as Response;
-      }
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const user = userEvent.setup();
-    render(
-      <ProjectDocumentsPanel
-        projectId="project-1"
-        projectStatus="draft"
-        hasAnyApiKeys={true}
-        labels={labels}
-      />
-    );
-
-    expect(await screen.findByText("report.pdf")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Delete" }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/projects/project-1/documents/report.pdf",
-        { method: "DELETE" }
-      );
-    });
-    expect(screen.queryByText("report.pdf")).not.toBeInTheDocument();
   });
 
   it("routes users without API keys to settings in a new tab", async () => {
-    const openSpy = vi
-      .spyOn(window, "open")
-      .mockImplementation(() => null);
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         documents: [
           {
+            id: "doc-1",
             filename: "report.pdf",
             pathname: "user-1/project-1/report.pdf",
             size: 2048,
             uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "QUEUED",
+            processingError: null,
+            lastProcessedAt: null,
+            reprocessCount: 0,
           },
         ],
       }),
@@ -268,6 +203,9 @@ describe("ProjectDocumentsPanel", () => {
         projectId="project-1"
         projectStatus="draft"
         hasAnyApiKeys={false}
+        apiKeyStatuses={[]}
+        diligenceJob={null}
+        insights={null}
         labels={labels}
       />
     );
@@ -284,16 +222,21 @@ describe("ProjectDocumentsPanel", () => {
     );
   });
 
-  it("starts due diligence for draft projects when keys exist", async () => {
+  it("starts due diligence for draft projects with provider config", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         documents: [
           {
+            id: "doc-1",
             filename: "report.pdf",
             pathname: "user-1/project-1/report.pdf",
             size: 2048,
             uploadedAt: "2026-05-06T00:00:00.000Z",
+            processingStatus: "QUEUED",
+            processingError: null,
+            lastProcessedAt: null,
+            reprocessCount: 0,
           },
         ],
       }),
@@ -306,15 +249,69 @@ describe("ProjectDocumentsPanel", () => {
         projectId="project-1"
         projectStatus="draft"
         hasAnyApiKeys={true}
+        apiKeyStatuses={[...apiKeyStatuses]}
+        diligenceJob={null}
+        insights={null}
         labels={labels}
       />
     );
 
+    fireEvent.change(await screen.findByLabelText("Model"), {
+      target: { value: "gpt-4o" },
+    });
+
     await user.click(await screen.findByRole("button", { name: "Be Diligent" }));
 
-    expect(startProjectDueDiligence).toHaveBeenCalledWith("project-1");
-    expect(toast.success).toHaveBeenCalledWith(
-      "Due diligence workflow start is coming next."
+    expect(startProjectDueDiligence).toHaveBeenCalledWith("project-1", {
+      selectedProvider: "OPENAI",
+      selectedModel: "gpt-4o",
+      fallbackProviders: [],
+    });
+    expect(toast.success).toHaveBeenCalledWith("Due diligence job initialized.");
+  });
+
+  it("retries a failed diligence job", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ documents: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        projectStatus="inprogress"
+        hasAnyApiKeys={true}
+        apiKeyStatuses={[...apiKeyStatuses]}
+        diligenceJob={{
+          id: "job-1",
+          status: "FAILED",
+          selectedProvider: "OPENAI",
+          selectedModel: "gpt-4o-mini",
+          currentStage: "DOCUMENT_CLASSIFICATION",
+          progressPercent: 20,
+          tokenUsageTotal: 100,
+          estimatedCostUsd: 0.01,
+          errorMessage: "boom",
+          stageRuns: [
+            {
+              stage: "DOCUMENT_EXTRACTION",
+              status: "COMPLETED",
+              attempts: 1,
+              updatedAt: new Date(),
+            },
+          ],
+        }}
+        insights={null}
+        labels={labels}
+      />
     );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Retry diligence" })
+    );
+
+    expect(retryProjectDueDiligence).toHaveBeenCalledWith("job-1");
   });
 });

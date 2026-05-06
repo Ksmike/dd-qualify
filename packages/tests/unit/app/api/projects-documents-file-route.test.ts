@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const authMock = vi.fn();
 const getMock = vi.fn();
 const delMock = vi.fn();
+const deleteForProjectPathMock = vi.fn();
+const markQueuedForProjectPathMock = vi.fn();
+const projectUpdateManyMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   auth: authMock,
@@ -13,9 +16,27 @@ vi.mock("@vercel/blob", () => ({
   del: delMock,
 }));
 
+vi.mock("@/lib/models/ProjectDocumentModel", () => ({
+  ProjectDocumentModel: {
+    deleteForProjectPath: deleteForProjectPathMock,
+    markQueuedForProjectPath: markQueuedForProjectPathMock,
+  },
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: {
+    project: {
+      updateMany: projectUpdateManyMock,
+    },
+  },
+}));
+
 describe("project document read route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    markQueuedForProjectPathMock.mockResolvedValue({ count: 1 });
+    projectUpdateManyMock.mockResolvedValue({ count: 1 });
+    deleteForProjectPathMock.mockResolvedValue({ count: 1 });
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -129,6 +150,29 @@ describe("project document read route", () => {
     });
 
     expect(delMock).toHaveBeenCalledWith("user-1/project-1/folder/report.pdf");
+    expect(deleteForProjectPathMock).toHaveBeenCalled();
+    expect(response.status).toBe(200);
+  });
+
+  it("queues a document for reprocessing", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    const route = await import(
+      "@/app/api/projects/[projectId]/documents/[...documentPath]/route"
+    );
+
+    const response = await route.PATCH(new Request("http://localhost"), {
+      params: Promise.resolve({
+        projectId: "project-1",
+        documentPath: ["folder", "report.pdf"],
+      }),
+    });
+
+    expect(markQueuedForProjectPathMock).toHaveBeenCalledWith({
+      projectId: "project-1",
+      userId: "user-1",
+      pathname: "user-1/project-1/folder/report.pdf",
+    });
+    expect(projectUpdateManyMock).toHaveBeenCalled();
     expect(response.status).toBe(200);
   });
 });

@@ -65,6 +65,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   ```tsx
   import { LuSettings, LuLayoutDashboard } from "react-icons/lu";
   ```
+  Note: This project uses a newer react-icons where Lucide icons use updated names (e.g., `LuTriangleAlert` not `LuAlertTriangle`, `LuCircleCheck` not `LuCheckCircle`). Check the actual exports if unsure.
 - Don't wrap icons in extra components unless you're adding meaningful behavior.
 
 ## Localization & Labels

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { RootProviders } from "@/components/providers/RootProviders";
 import "./globals.css";
 
 const inter = Inter({
@@ -13,14 +14,34 @@ export const metadata: Metadata = {
     "DD Qualify is the source-of-truth intelligence layer for VC and PE diligence teams. Every claim from every source — triangulated automatically, with gaps closed and contradictions surfaced.",
 };
 
+// Runs synchronously before React hydrates — prevents flash of wrong theme.
+const themeScript = `
+  try {
+    const t = localStorage.getItem("dd:theme");
+    const root = document.documentElement;
+    if (t === "dark") { root.classList.add("dark"); root.classList.remove("light"); }
+    else { root.classList.add("light"); root.classList.remove("dark"); }
+  } catch {}
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} h-full antialiased`}
+    >
+      <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <RootProviders>{children}</RootProviders>
+      </body>
     </html>
   );
 }

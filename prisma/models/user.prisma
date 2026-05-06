@@ -15,5 +15,12 @@ model User {
     accounts Account[]
     sessions Session[]
     projects Project[]
+    projectDocuments ProjectDocument[]
     apiKeys  UserApiKey[]
+    diligenceJobs DiligenceJob[]
+    diligenceArtifacts DiligenceArtifact[]
+    diligenceFindings DiligenceFinding[]
+    diligenceClaims DiligenceClaim[]
+    diligenceEntities DiligenceEntity[]
+    diligenceContradictions DiligenceContradiction[]
 }

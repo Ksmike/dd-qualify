@@ -24,6 +24,7 @@ export default async function DashboardPage() {
   const statusClasses = {
     draft: "bg-content2 text-foreground/80",
     inprogress: "bg-warning/15 text-warning",
+    reviewed: "bg-success/15 text-success",
     complete: "bg-success/15 text-success",
     rejected: "bg-danger/15 text-danger",
   } as const;

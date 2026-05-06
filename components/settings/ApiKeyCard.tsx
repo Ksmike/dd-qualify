@@ -3,7 +3,12 @@
 import { useState, useTransition } from "react";
 import { SiOpenai, SiAnthropic, SiGoogle } from "react-icons/si";
 import { FiEdit2, FiTrash2, FiX, FiLoader, FiAlertCircle } from "react-icons/fi";
-import { upsertApiKey, deleteApiKey } from "@/lib/actions/apiKeys";
+import {
+  upsertApiKey,
+  deleteApiKey,
+  validateApiKey,
+  updateApiKeySettings,
+} from "@/lib/actions/apiKeys";
 import type { ApiKeyProvider, ApiKeyStatus } from "@/lib/actions/apiKeys";
 import type { IconType } from "react-icons";
 
@@ -59,6 +64,9 @@ export function ApiKeyCard({
   const [status, setStatus] = useState(initial);
   const [mode, setMode] = useState<Mode>("idle");
   const [inputValue, setInputValue] = useState("");
+  const [defaultModel, setDefaultModel] = useState(initial.defaultModel ?? "");
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -67,12 +75,23 @@ export function ApiKeyCard({
     if (!trimmed) return;
     setError("");
     startTransition(async () => {
-      const result = await upsertApiKey(provider, trimmed);
+      const result = await upsertApiKey(provider, trimmed, {
+        defaultModel,
+        enabled,
+      });
       if (result.error) {
         setError(result.error);
         return;
       }
-      const updated: ApiKeyStatus = { provider, isSet: true, hint: trimmed.slice(-4) };
+      const updated: ApiKeyStatus = {
+        id: status.id,
+        provider,
+        isSet: true,
+        hint: trimmed.slice(-4),
+        defaultModel,
+        enabled,
+        lastValidatedAt: status.lastValidatedAt,
+      };
       setStatus(updated);
       onUpdate(updated);
       setInputValue("");
@@ -83,11 +102,60 @@ export function ApiKeyCard({
   function handleRevoke() {
     startTransition(async () => {
       await deleteApiKey(provider);
-      const updated: ApiKeyStatus = { provider, isSet: false, hint: null };
+      const updated: ApiKeyStatus = {
+        id: null,
+        provider,
+        isSet: false,
+        hint: null,
+        defaultModel,
+        enabled: false,
+        lastValidatedAt: null,
+      };
       setStatus(updated);
       onUpdate(updated);
       setMode("idle");
       setInputValue("");
+    });
+  }
+
+  async function handleTestKey() {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    setError("");
+    setIsValidating(true);
+    try {
+      const result = await validateApiKey(provider, trimmed, defaultModel);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setStatus((currentStatus) => ({
+        ...currentStatus,
+        lastValidatedAt: result.validatedAt ?? currentStatus.lastValidatedAt,
+      }));
+    } finally {
+      setIsValidating(false);
+    }
+  }
+
+  function handleSaveSettings() {
+    startTransition(async () => {
+      const result = await updateApiKeySettings(provider, {
+        enabled,
+        defaultModel,
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      const updated: ApiKeyStatus = {
+        ...status,
+        enabled,
+        defaultModel,
+      };
+      setStatus(updated);
+      onUpdate(updated);
     });
   }
 
@@ -189,6 +257,13 @@ export function ApiKeyCard({
               {isPending && <FiLoader className="h-3.5 w-3.5 animate-spin" />}
               {isPending ? "Saving…" : status.isSet ? "Update" : "Save"}
             </button>
+            <button
+              onClick={() => void handleTestKey()}
+              disabled={isValidating || !inputValue.trim()}
+              className="rounded-md border border-divider px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-content2 disabled:opacity-40"
+            >
+              {isValidating ? "Testing…" : "Test key"}
+            </button>
             {mode === "editing" && (
               <button
                 onClick={handleCancel}
@@ -206,6 +281,37 @@ export function ApiKeyCard({
               {error}
             </p>
           )}
+        </div>
+      )}
+
+      {status.isSet && mode === "idle" && (
+        <div className="space-y-3 border-t border-divider p-5 pt-4">
+          <label className="block">
+            <span className="text-xs text-foreground/60">Default model</span>
+            <input
+              value={defaultModel}
+              onChange={(event) => setDefaultModel(event.target.value)}
+              className="mt-1 w-full rounded-md border border-divider bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+
+          <label className="flex items-center gap-2 text-xs text-foreground/70">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+            />
+            Provider enabled for diligence jobs
+          </label>
+
+          <button
+            type="button"
+            onClick={handleSaveSettings}
+            disabled={isPending}
+            className="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-foreground hover:bg-content2 disabled:opacity-50"
+          >
+            Save provider settings
+          </button>
         </div>
       )}
     </div>

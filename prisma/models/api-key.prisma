@@ -12,11 +12,16 @@ model UserApiKey {
     provider     ApiKeyProvider
     encryptedKey String
     keyHint      String // last 4 chars of the original key for display
+    defaultModel String?
+    enabled      Boolean        @default(true)
+    lastValidatedAt DateTime?
+    validationError String?
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    diligenceJobs DiligenceJob[]
 
     @@unique([userId, provider])
     @@index([userId])

@@ -5,6 +5,7 @@ import { ProjectModel } from "@/lib/models/ProjectModel";
 import { ProjectDocumentsPanel } from "@/app/(app)/project/[id]/ProjectDocumentsPanel";
 import { ProjectHeader } from "@/app/(app)/project/[id]/ProjectHeader";
 import { getApiKeyStatuses } from "@/lib/actions/apiKeys";
+import { DiligenceJobModel } from "@/lib/models/DiligenceJobModel";
 
 export const metadata = {
   title: "Project | DD Qualify",
@@ -35,7 +36,20 @@ export default async function ProjectInspectPage({
 
   const { labels } = getLabelsForLocale(session.user.locale ?? "en");
   const apiKeyStatuses = await getApiKeyStatuses();
-  const hasAnyApiKeys = apiKeyStatuses.some((status) => status.isSet);
+  const hasAnyApiKeys = apiKeyStatuses.some(
+    (status) => status.isSet && status.enabled
+  );
+  const diligenceJob = await DiligenceJobModel.findLatestWithStagesForProject({
+    projectId: project.id,
+    userId: session.user.id,
+  });
+  const insights =
+    project.status === "reviewed" || project.status === "complete"
+      ? await DiligenceJobModel.getInsightsForProject({
+          projectId: project.id,
+          userId: session.user.id,
+        })
+      : null;
   const formattedCreatedAt = new Intl.DateTimeFormat(session.user.locale ?? "en", {
     dateStyle: "medium",
   }).format(project.createdAt);
@@ -55,6 +69,9 @@ export default async function ProjectInspectPage({
         projectId={project.id}
         projectStatus={project.status}
         hasAnyApiKeys={hasAnyApiKeys}
+        apiKeyStatuses={apiKeyStatuses}
+        diligenceJob={diligenceJob}
+        insights={insights}
         labels={labels.app.projectInspect}
       />
     </div>

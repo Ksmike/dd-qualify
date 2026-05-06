@@ -1,0 +1,30 @@
+enum ProjectDocumentProcessingStatus {
+    QUEUED
+    PROCESSING
+    PROCESSED
+    FAILED
+}
+
+model ProjectDocument {
+    id               String                          @id @default(cuid())
+    projectId        String
+    userId           String
+    filename         String
+    pathname         String
+    contentType      String?
+    sizeBytes        Int
+    processingStatus ProjectDocumentProcessingStatus @default(QUEUED)
+    processingError  String?
+    reprocessCount   Int                             @default(0)
+    uploadedAt       DateTime                        @default(now())
+    lastProcessedAt  DateTime?
+    createdAt        DateTime                        @default(now())
+    updatedAt        DateTime                        @updatedAt
+
+    project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([projectId, pathname])
+    @@index([projectId, processingStatus])
+    @@index([userId, projectId])
+}
