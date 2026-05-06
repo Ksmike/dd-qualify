@@ -1,21 +1,22 @@
 import type { AppLabels, SupportedLocale } from "@/labels/types";
+import { enLabels } from "@/labels/en";
 
-const labelLoaders: Record<SupportedLocale, () => Promise<AppLabels>> = {
-  en: async () => (await import("@/labels/en")).enLabels,
+const labelsByLocale: Record<SupportedLocale, AppLabels> = {
+  en: enLabels,
 };
 
-export async function getLabels(locale: SupportedLocale): Promise<AppLabels> {
-  return labelLoaders[locale]();
+export function getLabels(locale: SupportedLocale): AppLabels {
+  return labelsByLocale[locale];
 }
 
-export async function getLabelsForLocale(locale: string): Promise<{
+export function getLabelsForLocale(locale: string): {
   labels: AppLabels;
   locale: SupportedLocale;
-}> {
+} {
   const resolvedLocale: SupportedLocale = locale === "en" ? "en" : "en";
 
   return {
     locale: resolvedLocale,
-    labels: await getLabels(resolvedLocale),
+    labels: getLabels(resolvedLocale),
   };
 }

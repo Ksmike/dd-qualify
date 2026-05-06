@@ -19,6 +19,12 @@ yarn prisma generate
 yarn dev
 ```
 
+For local HTTPS (using certs in `certificates/`):
+
+```bash
+yarn dev:https
+```
+
 ## Environment Variables
 
 Copy `.env.example` or set these in your Vercel project:
@@ -27,6 +33,8 @@ Copy `.env.example` or set these in your Vercel project:
 - `DIRECT_URL` — Direct Neon connection (for migrations)
 - `AUTH_SECRET` — Random secret for Auth.js sessions
 - `AUTH_URL` — App URL (e.g. `http://localhost:3000`)
+
+If using `yarn dev:https`, set `AUTH_URL=https://localhost:3000`.
 
 ## Database
 

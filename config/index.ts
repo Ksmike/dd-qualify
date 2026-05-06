@@ -17,9 +17,26 @@ function envRequired(key: string): string {
   return value;
 }
 
+function normalizeDatabaseUrl(connectionString: string): string {
+  const url = new URL(connectionString);
+  const sslmode = url.searchParams.get("sslmode");
+
+  if (
+    !sslmode ||
+    sslmode === "prefer" ||
+    sslmode === "require" ||
+    sslmode === "verify-ca"
+  ) {
+    // Keep strict certificate verification semantics across driver upgrades.
+    url.searchParams.set("sslmode", "verify-full");
+  }
+
+  return url.toString();
+}
+
 export const config = {
   database: {
-    url: envRequired("DATABASE_URL"),
+    url: normalizeDatabaseUrl(envRequired("DATABASE_URL")),
   },
   auth: {
     secret: env("AUTH_SECRET"),

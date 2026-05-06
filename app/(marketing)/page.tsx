@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getLabelsForLocale } from "@/labels";
 
-export default async function HomePage() {
-  const { labels } = await getLabelsForLocale("en");
+export default function HomePage() {
+  const { labels } = getLabelsForLocale("en");
   const marketing = labels.marketing;
 
   return (

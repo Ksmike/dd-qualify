@@ -10,9 +10,11 @@
 !.yarn/releases
 !.yarn/versions
 
+#localcerts
+/certificates
+
 # testing
 /coverage
-
 # next.js
 /.next/
 /out/
