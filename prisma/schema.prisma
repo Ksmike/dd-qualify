@@ -1,0 +1,11 @@
+// Main schema file — generator and datasource config only.
+// Models are organized in prisma/models/*.prisma
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

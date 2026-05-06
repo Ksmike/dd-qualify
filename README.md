@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DD Qualify
+
+A Next.js prototype hosted on Vercel with Neon Postgres.
+
+## Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **UI:** HeroUI + Tailwind CSS v4
+- **Database:** Neon Postgres (via Vercel Marketplace)
+- **ORM:** Prisma 7 (multi-file schema)
+- **Auth:** Auth.js v5 (email/password, extensible to OAuth)
+- **Hosting:** Vercel
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
+yarn install
+yarn prisma generate
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` or set these in your Vercel project:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `DATABASE_URL` — Pooled Neon Postgres connection string
+- `DIRECT_URL` — Direct Neon connection (for migrations)
+- `AUTH_SECRET` — Random secret for Auth.js sessions
+- `AUTH_URL` — App URL (e.g. `http://localhost:3000`)
 
-## Learn More
+## Database
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Run migrations
+yarn prisma migrate dev
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Generate client after schema changes
+yarn prisma generate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Schema files are split by domain in `prisma/models/`.

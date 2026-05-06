@@ -50,3 +50,134 @@ This version has breaking changes — APIs, conventions, and file structure may 
 2. **Props, not config objects** — Keep component APIs flat and explicit. Avoid god-objects like `config={{ ... }}`.
 3. **No premature generalization** — Build for the current need. Generalize when a second use case arrives, not before.
 4. **Slots and children over deep prop drilling** — Use composition (`children`, render props, or HeroUI slots) to keep components flexible without exploding the prop surface.
+
+## Localization & Labels
+
+- **Never hardcode user-facing copy in components/pages.** Put all UI text in locale label files under `labels/<locale>/...`.
+- Default locale is **English (`en`)**. New labels should be added to `labels/en/` first.
+- Keep labels typed via `labels/types.ts`, and access them through the shared loader in `labels/index.ts`.
+- When adding new UI sections, add corresponding label keys instead of inline strings.
+- Treat locale as user data. `User.locale` should be used as the long-term source of truth, with fallback to `"en"`.
+
+---
+
+# Prisma 7 — Database & Schema
+
+## Overview
+
+This project uses **Prisma 7** with the new `prisma-client` generator (Rust-free client). This is NOT the Prisma you may know from v5/v6 — key differences below.
+
+## Multi-File Schema
+
+The schema is split across multiple `.prisma` files organized by domain:
+
+```
+prisma/
+├── schema.prisma          ← Generator + datasource config ONLY
+├── models/
+│   ├── user.prisma        ← User model
+│   └── auth.prisma        ← Account, Session, VerificationToken
+└── migrations/
+```
+
+- **Adding a new domain:** Create a new file in `prisma/models/` (e.g., `project.prisma`, `billing.prisma`).
+- Models can reference each other across files — Prisma merges them automatically. No imports needed.
+- The `prisma.config.ts` points at the `prisma/` directory (not a single file).
+
+## Prisma 7 Key Differences (vs v5/v6)
+
+1. **Driver adapters are required.** You cannot just `new PrismaClient()`. You must pass an adapter:
+   ```ts
+   import { PrismaClient } from "@/lib/generated/prisma/client";
+   import { PrismaPg } from "@prisma/adapter-pg";
+
+   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+   const prisma = new PrismaClient({ adapter });
+   ```
+
+2. **Generated client lives in `lib/generated/prisma/`** — not in `node_modules`. Import from:
+   ```ts
+   import { PrismaClient } from "@/lib/generated/prisma/client";
+   import type { User } from "@/lib/generated/prisma/models/User";
+   ```
+
+3. **`url` and `directUrl` are NOT in `schema.prisma`** — they go in `prisma.config.ts`.
+
+4. **ESM-first** — the generated client is ESM.
+
+5. **No auto-generate on migrate** — run `prisma generate` explicitly after schema changes.
+
+## Singleton Pattern
+
+Use the shared instance from `lib/db.ts` — never instantiate `PrismaClient` directly in route handlers or server actions:
+
+```ts
+import { db } from "@/lib/db";
+```
+
+## Workflow
+
+```bash
+# After changing any .prisma file:
+yarn prisma generate          # Regenerate client
+yarn prisma migrate dev       # Create + apply migration
+
+# Check migration status:
+yarn prisma migrate status
+```
+
+## Rules
+
+- Never put connection strings in `schema.prisma` — they belong in `.env` and `prisma.config.ts`.
+- Always use `@/lib/db` for database access — it handles the singleton + adapter setup.
+- Keep `schema.prisma` minimal (generator + datasource only). All models go in `prisma/models/`.
+- Name model files after their primary domain: `user.prisma`, `auth.prisma`, `billing.prisma`.
+- `lib/generated/` is gitignored — it's regenerated via `postinstall` on deploy.
+
+---
+
+# Testing
+
+## Overview
+
+This project uses **Vitest** with **React Testing Library** for unit and integration tests. All tests live in `packages/tests/`.
+
+## Directory Structure
+
+```
+packages/tests/
+├── setup.ts               ← Global test setup (jsdom, RTL cleanup, common mocks)
+├── mocks/
+│   └── db.ts             ← Shared Prisma mock (auto-mocks @/lib/db)
+├── unit/                  ← Unit tests (isolated, mocked dependencies)
+│   ├── actions/           ← Server action tests
+│   ├── lib/               ← Utility/library tests
+│   └── components/        ← Component unit tests
+└── integration/           ← Integration tests (multiple modules working together)
+```
+
+## Coverage Requirements
+
+- **Minimum 90% line coverage** is enforced via `vitest.config.ts` thresholds.
+- Coverage is measured over `lib/`, `components/`, and `app/` — excluding generated code and config files.
+- Run `yarn test:coverage` to check coverage locally.
+
+## Commands
+
+```bash
+yarn test              # Run all tests once
+yarn test:watch        # Run in watch mode during development
+yarn test:coverage     # Run with coverage report + threshold enforcement
+```
+
+## Rules
+
+- **Every new feature or bug fix must include tests.** Aim for 90%+ line coverage on new code.
+- Place unit tests in `packages/tests/unit/` mirroring the source structure (e.g., `lib/actions/auth.ts` → `packages/tests/unit/actions/auth.test.ts`).
+- Place integration tests in `packages/tests/integration/`.
+- Use the shared mock from `packages/tests/mocks/db.ts` for database interactions — don't create one-off Prisma mocks.
+- Mock external dependencies (database, auth, third-party APIs) in unit tests. Integration tests may use real implementations where practical.
+- Name test files `*.test.ts` or `*.test.tsx`.
+- Use `describe` blocks to group related tests. Use clear, behavior-focused test names (e.g., `"returns error when password is too short"`).
+- Don't test implementation details — test behavior and outcomes.
+- For React components, prefer testing user-visible behavior (text, interactions) over internal state.
