@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { MobileSidebar } from "@/components/MobileSidebar";
 import { Providers } from "@/components/providers/Providers";
 import { auth } from "@/lib/auth";
 
@@ -20,9 +21,19 @@ export default async function AppLayout({
 
   return (
     <Providers user={user}>
-      <div className="flex flex-1">
+      <div className="flex flex-1 flex-col md:flex-row">
+        {/* Mobile header with hamburger */}
+        <header className="flex items-center gap-3 border-b border-divider bg-background px-4 py-3 md:hidden">
+          <MobileSidebar />
+          <span className="text-sm font-semibold text-foreground">
+            DD Qualify
+          </span>
+        </header>
+
+        {/* Desktop sidebar */}
         <Sidebar />
-        <main className="flex-1 p-6">{children}</main>
+
+        <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
     </Providers>
   );

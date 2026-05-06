@@ -25,9 +25,9 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn().mockResolvedValue(null),
 }));
 
-// Mock labels for HomePage (async server component)
+// Mock labels for HomePage
 vi.mock("@/labels", () => ({
-  getLabelsForLocale: vi.fn().mockResolvedValue({
+  getLabelsForLocale: vi.fn().mockReturnValue({
     locale: "en",
     labels: {
       marketing: {
@@ -146,9 +146,7 @@ describe("MarketingLayout", () => {
 describe("HomePage", () => {
   it("renders hero heading", async () => {
     const { default: HomePage } = await import("@/app/(marketing)/page");
-    // Async server component — call as function and await
-    const element = await HomePage();
-    render(element);
+    render(<HomePage />);
     expect(
       screen.getByRole("heading", {
         name: /DD Qualify helps investors underwrite faster/,
@@ -158,8 +156,7 @@ describe("HomePage", () => {
 
   it("renders metrics", async () => {
     const { default: HomePage } = await import("@/app/(marketing)/page");
-    const element = await HomePage();
-    render(element);
+    render(<HomePage />);
     expect(screen.getByText("240+")).toBeInTheDocument();
     expect(screen.getByText("36 hours")).toBeInTheDocument();
     expect(screen.getByText("92%")).toBeInTheDocument();
@@ -167,8 +164,7 @@ describe("HomePage", () => {
 
   it("renders workflow section", async () => {
     const { default: HomePage } = await import("@/app/(marketing)/page");
-    const element = await HomePage();
-    render(element);
+    render(<HomePage />);
     expect(
       screen.getByRole("heading", { name: "How DD Qualify works" })
     ).toBeInTheDocument();
@@ -185,8 +181,7 @@ describe("HomePage", () => {
 
   it("renders CTA links", async () => {
     const { default: HomePage } = await import("@/app/(marketing)/page");
-    const element = await HomePage();
-    render(element);
+    render(<HomePage />);
     const registerLinks = screen.getAllByRole("link", {
       name: /Start Free Trial|Create Workspace/,
     });

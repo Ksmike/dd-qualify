@@ -3,6 +3,10 @@ import { render, screen } from "@testing-library/react";
 
 vi.mock("@/components/Sidebar", () => ({
   Sidebar: () => <div data-testid="sidebar" />,
+  navItems: [
+    { label: "Dashboard", href: "/dashboard" },
+    { label: "Settings", href: "/settings" },
+  ],
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -15,6 +19,10 @@ vi.mock("@/components/providers/Providers", () => ({
   Providers: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="providers">{children}</div>
   ),
+}));
+
+vi.mock("@/components/MobileSidebar", () => ({
+  MobileSidebar: () => <div data-testid="mobile-sidebar" />,
 }));
 
 describe("AppLayout", () => {

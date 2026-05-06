@@ -1,14 +1,15 @@
 import Link from "next/link";
+import { LogoutButton } from "@/components/LogoutButton";
 
-const navItems = [
+export const navItems = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Settings", href: "/settings" },
 ];
 
 export function Sidebar() {
   return (
-    <aside className="flex w-64 flex-col border-r border-divider bg-content1 p-4">
-      <nav className="flex flex-col gap-1">
+    <aside className="hidden md:flex w-64 flex-col border-r border-divider bg-content1 p-4">
+      <nav className="flex flex-1 flex-col gap-1">
         {navItems.map((item) => (
           <Link
             key={item.href}
@@ -19,6 +20,9 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
+      <div className="border-t border-divider pt-3">
+        <LogoutButton />
+      </div>
     </aside>
   );
 }
