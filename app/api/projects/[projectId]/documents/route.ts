@@ -14,7 +14,9 @@ const INVALID_PROJECT_ID_ERROR = "Invalid project ID.";
 const INVALID_DOCUMENT_ERROR =
   "Unsupported document format. Allowed: .txt, .docx, .pages, .pdf, .ppt, .pptx, .key, .keynote.";
 
-function getUserIdFromSession(session: Awaited<ReturnType<typeof auth>>) {
+function getUserIdFromSession(session: {
+  user?: { id?: string | null } | null;
+} | null | undefined) {
   return session?.user?.id ?? null;
 }
 

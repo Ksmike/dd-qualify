@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectDocumentsPanel } from "@/app/(app)/project/[id]/ProjectDocumentsPanel";
 import { toast } from "@heroui/react";
+import { startProjectDueDiligence } from "@/lib/actions/project";
 
 vi.mock("@heroui/react", async () => {
   const actual = await vi.importActual<typeof import("@heroui/react")>(
@@ -12,10 +13,14 @@ vi.mock("@heroui/react", async () => {
     ...actual,
     toast: {
       warning: vi.fn(),
-      info: vi.fn(),
+      success: vi.fn(),
+      danger: vi.fn(),
     },
   };
 });
+vi.mock("@/lib/actions/project", () => ({
+  startProjectDueDiligence: vi.fn().mockResolvedValue({}),
+}));
 
 const labels = {
   documentsHeading: "Files",
@@ -68,6 +73,7 @@ describe("ProjectDocumentsPanel", () => {
     render(
       <ProjectDocumentsPanel
         projectId="project-1"
+        projectStatus="draft"
         hasAnyApiKeys={true}
         labels={labels}
       />
@@ -116,6 +122,7 @@ describe("ProjectDocumentsPanel", () => {
     render(
       <ProjectDocumentsPanel
         projectId="project-1"
+        projectStatus="draft"
         hasAnyApiKeys={true}
         labels={labels}
       />
@@ -160,6 +167,7 @@ describe("ProjectDocumentsPanel", () => {
     render(
       <ProjectDocumentsPanel
         projectId="project-1"
+        projectStatus="draft"
         hasAnyApiKeys={true}
         labels={labels}
       />
@@ -217,6 +225,7 @@ describe("ProjectDocumentsPanel", () => {
     render(
       <ProjectDocumentsPanel
         projectId="project-1"
+        projectStatus="draft"
         hasAnyApiKeys={true}
         labels={labels}
       />
@@ -257,6 +266,7 @@ describe("ProjectDocumentsPanel", () => {
     render(
       <ProjectDocumentsPanel
         projectId="project-1"
+        projectStatus="draft"
         hasAnyApiKeys={false}
         labels={labels}
       />
@@ -271,6 +281,40 @@ describe("ProjectDocumentsPanel", () => {
       "/settings",
       "_blank",
       "noopener,noreferrer"
+    );
+  });
+
+  it("starts due diligence for draft projects when keys exist", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            filename: "report.pdf",
+            pathname: "user-1/project-1/report.pdf",
+            size: 2048,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        projectStatus="draft"
+        hasAnyApiKeys={true}
+        labels={labels}
+      />
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Be Diligent" }));
+
+    expect(startProjectDueDiligence).toHaveBeenCalledWith("project-1");
+    expect(toast.success).toHaveBeenCalledWith(
+      "Due diligence workflow start is coming next."
     );
   });
 });

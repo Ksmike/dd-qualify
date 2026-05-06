@@ -1,6 +1,19 @@
 import { db } from "@/lib/db";
 
-export type ProjectStatus = "draft" | "inprogress" | "complete" | "rejected";
+const PROJECT_STATUSES = [
+  "draft",
+  "inprogress",
+  "complete",
+  "rejected",
+] as const;
+
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+function toProjectStatus(status: string): ProjectStatus {
+  return PROJECT_STATUSES.includes(status as ProjectStatus)
+    ? (status as ProjectStatus)
+    : "draft";
+}
 
 export const ProjectModel = {
   async countByUserId(userId: string): Promise<number> {
@@ -12,7 +25,7 @@ export const ProjectModel = {
   async listByUserId(
     userId: string
   ): Promise<Array<{ id: string; name: string; status: ProjectStatus }>> {
-    return db.project.findMany({
+    const projects = await db.project.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
       select: {
@@ -21,6 +34,11 @@ export const ProjectModel = {
         status: true,
       },
     });
+
+    return projects.map((project) => ({
+      ...project,
+      status: toProjectStatus(project.status),
+    }));
   },
 
   async findByIdForUser(input: {
@@ -32,7 +50,7 @@ export const ProjectModel = {
     status: ProjectStatus;
     createdAt: Date;
   } | null> {
-    return db.project.findFirst({
+    const project = await db.project.findFirst({
       where: {
         id: input.projectId,
         userId: input.userId,
@@ -44,6 +62,15 @@ export const ProjectModel = {
         createdAt: true,
       },
     });
+
+    if (!project) {
+      return null;
+    }
+
+    return {
+      ...project,
+      status: toProjectStatus(project.status),
+    };
   },
 
   async createForUser(input: { name: string; userId: string }) {

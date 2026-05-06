@@ -7,5 +7,4 @@ import type { ToastProviderProps } from "@heroui/react";
  */
 export const toastConfig: Partial<ToastProviderProps> = {
   placement: "bottom end",
-  toastOffset: 16,
 };
