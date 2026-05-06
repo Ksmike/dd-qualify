@@ -259,7 +259,7 @@ export class DiligenceWorker {
       if (isCompleted) {
         await db.project.updateMany({
           where: { id: job.projectId, userId: job.userId },
-          data: { status: "reviewed" },
+          data: { status: PrismaProjectStatus.REVIEWED },
         });
         return { status: "completed", stage: nextStage };
       }
@@ -299,7 +299,7 @@ export class DiligenceWorker {
     });
     await db.project.updateMany({
       where: { id: projectId, userId },
-      data: { status: "reviewed" },
+      data: { status: PrismaProjectStatus.REVIEWED },
     });
   }
 

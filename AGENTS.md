@@ -151,6 +151,36 @@ yarn prisma migrate status
 - Name model files after their primary domain: `user.prisma`, `auth.prisma`, `billing.prisma`.
 - `lib/generated/` is gitignored — it's regenerated via `postinstall` on deploy.
 
+## Schema Design Standards
+
+### Use enums for constrained values
+- **Always use Prisma enums** for status fields, type fields, and any column with a fixed set of valid values. Never use free `String` for these.
+- Map Prisma enums to app-level types in the model layer (e.g., `PrismaProjectStatus.DRAFT` ↔ `"draft"`).
+
+### Intentional denormalization: `userId` on child tables
+- Child tables (e.g., `DiligenceFinding`, `DiligenceClaim`) carry a `userId` column even though it's derivable via `job.userId`. This is **intentional** for row-level access control — every query filters by `userId` without needing a join. Do not remove it.
+- When creating child records, always set `userId` from the parent context. Never leave it inconsistent.
+
+### Json columns — use sparingly
+- `Json` columns (`metadata`, `chunkRefs`, `evidenceRefs`, `structured`) are for opaque blobs you only read after fetching the row.
+- **Never store data in Json that you need to filter or query on.** If you find yourself parsing Json to filter results, extract that field into a proper column.
+- Document the expected shape of Json columns with a TypeScript type in the model layer.
+
+### Indexes
+- Add indexes for columns used in `WHERE` and `ORDER BY` clauses.
+- Composite indexes should match your most common query patterns (e.g., `@@index([projectId, createdAt])` for "list by project, newest first").
+- Don't over-index — each index slows writes. Only add indexes for queries that run frequently.
+
+### Relations and cascading
+- Always set `onDelete: Cascade` on child relations where the child has no meaning without the parent.
+- Use `onDelete: SetNull` for optional references (e.g., `userApiKeyId` on DiligenceJob — the job survives if the key is deleted).
+
+### Naming conventions
+- Model names: PascalCase singular (`DiligenceJob`, not `DiligenceJobs`).
+- Enum names: PascalCase (`ProjectStatus`, `DiligenceJobStatus`).
+- Enum values: UPPER_SNAKE_CASE (`IN_PROGRESS`, `COMPLETED`).
+- Column names: camelCase (`tokenUsageTotal`, `estimatedCostUsd`).
+
 ---
 
 # Testing
