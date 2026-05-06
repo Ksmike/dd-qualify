@@ -24,6 +24,7 @@ type ProjectHeaderProps = {
 };
 
 const statusClasses: Record<ProjectStatus, string> = {
+  draft: "bg-content2 text-foreground/80",
   inprogress: "bg-warning/15 text-warning",
   complete: "bg-success/15 text-success",
   rejected: "bg-danger/15 text-danger",

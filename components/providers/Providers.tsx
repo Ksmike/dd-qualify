@@ -3,6 +3,7 @@
 import { Provider as JotaiProvider } from "jotai";
 import { ToastProvider } from "@heroui/react";
 import { SessionSync } from "./SessionSync";
+import { toastConfig } from "@/config/toast";
 import type { SessionUser } from "@/lib/atoms/session";
 
 export function Providers({
@@ -16,7 +17,7 @@ export function Providers({
     <JotaiProvider>
       <SessionSync user={user} />
       {children}
-      <ToastProvider placement="top-end" />
+      <ToastProvider {...toastConfig} />
     </JotaiProvider>
   );
 }
