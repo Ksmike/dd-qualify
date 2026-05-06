@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockDb } from "../../../mocks/db";
 
+vi.mock("@/lib/generated/prisma/client", () => ({
+  ProjectStatus: {
+    DRAFT: "DRAFT",
+    IN_PROGRESS: "IN_PROGRESS",
+    REVIEWED: "REVIEWED",
+    COMPLETE: "COMPLETE",
+    REJECTED: "REJECTED",
+  },
+}));
+
 const { ProjectModel } = await import("@/lib/models/ProjectModel");
 
 describe("ProjectModel", () => {
@@ -32,8 +42,8 @@ describe("ProjectModel", () => {
   describe("listByUserId", () => {
     it("returns projects with normalized status", async () => {
       mockDb.project.findMany.mockResolvedValue([
-        { id: "p1", name: "Project A", status: "draft" },
-        { id: "p2", name: "Project B", status: "inprogress" },
+        { id: "p1", name: "Project A", status: "DRAFT" },
+        { id: "p2", name: "Project B", status: "IN_PROGRESS" },
       ]);
 
       const result = await ProjectModel.listByUserId("user-1");
@@ -74,7 +84,7 @@ describe("ProjectModel", () => {
       mockDb.project.findFirst.mockResolvedValue({
         id: "p1",
         name: "Project A",
-        status: "complete",
+        status: "COMPLETE",
         createdAt,
       });
 
