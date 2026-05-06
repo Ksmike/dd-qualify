@@ -2,83 +2,83 @@ import type { MarketingLabels } from "@/labels/types";
 
 export const marketingLabels: MarketingLabels = {
   hero: {
-    badge: "Automated Due Diligence Platform",
-    title: "DD Qualify helps investors underwrite faster with less blind risk.",
+    badge: "Source-of-Truth Intelligence for Investment Diligence",
+    title: "Every claim. Every source. Triangulated automatically.",
     description:
-      "We combine structured data ingestion, AI-assisted analysis, and analyst-ready reporting so funds and strategic buyers can complete commercial diligence in days instead of weeks.",
+      "DD Qualify is the source-of-truth intelligence layer for VC and PE diligence teams. Every claim from every source — triangulated automatically, with gaps closed and contradictions surfaced.",
     trialCta: "Start Free Trial",
-    demoCta: "View Live Workspace",
+    demoCta: "See It in Action",
     segmentLabels: [
       "VC",
       "Growth Equity",
+      "PE",
       "M&A",
-      "Commercial DD",
-      "Financial DD",
-      "Compliance DD",
+      "CDD",
+      "Expert Networks",
     ],
   },
   metrics: [
-    { label: "Deals screened per month", value: "240+" },
-    { label: "Median first-pass report", value: "36 hours" },
-    { label: "Manual analyst effort reduced", value: "92%" },
+    { label: "Sources triangulated per engagement", value: "12+" },
+    { label: "Claims structured automatically", value: "1,000+" },
+    { label: "Contradictions surfaced without manual review", value: "100%" },
   ],
   workflow: {
     heading: "How DD Qualify works",
     steps: [
       {
-        title: "Collect",
+        title: "Ingest",
         description:
-          "Connect data rooms, cap-table exports, accounting systems, and policy docs in one intake flow.",
+          "Connect pitch decks, CDD reports, expert call transcripts, and data room documents in one intake flow — no change to existing workflows.",
       },
       {
-        title: "Analyze",
+        title: "Triangulate",
         description:
-          "Run automated checks across legal, financial, and operational risk domains with explainable scoring.",
+          "Claims are structured into the intelligence graph and triangulated across sources. Convergence, divergence, and source gaps are detected automatically.",
       },
       {
-        title: "Decide",
+        title: "Surface",
         description:
-          "Get an executive summary, red-flag queue, and audit-ready workpapers your IC can review immediately.",
+          "Contradictions are flagged with provenance. Gaps are identified and chased. Your team gets a living, breathing picture of every deal that deepens with every source.",
       },
     ],
   },
   coverage: {
-    heading: "Risk coverage teams trust",
+    heading: "Intelligence your deal team trusts",
     description:
-      "Built for pre-investment and post-close reviews across venture, growth equity, and M&A teams.",
+      "Built specifically for the problems VC and PE diligence teams face — disparate sources making conflicting claims about a single deal.",
     items: [
-      "Corporate and contract compliance",
-      "Revenue quality and concentration risk",
-      "Unit economics and burn-rate stability",
-      "Security posture and vendor dependencies",
-      "KYC / AML, sanctions, and jurisdiction checks",
-      "Board governance and policy completeness",
+      "Convergence and divergence across all sources",
+      "Contradictions surfaced, not buried",
+      "Source-gap detection across the engagement",
+      "Conviction tested against the investment thesis",
+      "Every claim weighed against what the team prioritises",
+      "Disagreements between sources flagged, with provenance",
     ],
-    outcomesTitle: "Pilot portfolio outcomes",
+    outcomesTitle: "Pilot outcomes",
     outcomesParagraphs: [
-      "Teams using DD Qualify in pilot reduced kickoff-to-investment-committee cycle time by an average of 11 days while increasing issue detection before signing.",
-      "Typical users include diligence leads, deal teams, operating partners, and legal counsel collaborating from a single evidence trail.",
+      "Due diligence teams are drowning in data. Every deal generates dozens of sources — pitch decks, interview transcripts, CDD reports, expert calls — each making claims about the target. Associates spend weeks manually stitching them together into a memo. Insights fall through the cracks. Contradictions go unnoticed. Gaps rarely get chased down.",
+      "Teams using DD Qualify in pilot eliminated manual claim-stitching and surfaced contradictions before signing — producing a complete picture of every deal without extra work or changes to existing workflows.",
     ],
   },
   taxonomy: {
-    heading: "Built-in deal labels",
+    heading: "Built-in intelligence labels",
     description:
-      "Standardized labels are attached to every diligence workspace so teams can filter risks, route reviewers, and keep reporting consistent.",
+      "Standardised labels are attached to every diligence workspace so teams can filter signals, route reviewers, and keep reporting consistent across the engagement.",
     items: [
-      "Data Quality",
-      "Legal Risk",
-      "Financial Anomaly",
-      "Concentration Risk",
-      "Cyber / InfoSec",
-      "Regulatory",
+      "Convergence",
+      "Divergence",
+      "Source Gap",
+      "Contradiction",
+      "Unverified Claim",
+      "Conviction Signal",
     ],
   },
   cta: {
-    heading: "Ready to automate your next diligence cycle?",
+    heading: "Ready to triangulate your next deal?",
     description:
-      "Launch a workspace in minutes, invite your deal team, and generate a structured red-flag report before your next partner meeting.",
+      "Launch a workspace in minutes, connect your sources, and get a structured intelligence graph before your next partner meeting.",
     createWorkspaceCta: "Create Workspace",
-    contactSalesCta: "Contact Sales",
+    contactSalesCta: "Get in Touch",
     footnote:
       "Enterprise-ready API, SOC 2 roadmap, and role-based permissions available.",
   },

@@ -74,7 +74,7 @@ describe("db", () => {
   });
 
   it("reuses existing global instance in development", async () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
 
     const existingClient = { _existing: true };
     const g = globalThis as unknown as { prisma: unknown };

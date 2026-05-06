@@ -42,4 +42,5 @@ export const config = {
     secret: env("AUTH_SECRET"),
     url: env("AUTH_URL"),
   },
+  encryptionKey: env("ENCRYPTION_KEY"),
 } as const;

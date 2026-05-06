@@ -1,6 +1,7 @@
 "use client";
 
 import { Provider as JotaiProvider } from "jotai";
+import { ToastProvider } from "@heroui/react";
 import { SessionSync } from "./SessionSync";
 import type { SessionUser } from "@/lib/atoms/session";
 
@@ -15,6 +16,7 @@ export function Providers({
     <JotaiProvider>
       <SessionSync user={user} />
       {children}
+      <ToastProvider placement="top-end" />
     </JotaiProvider>
   );
 }

@@ -56,6 +56,41 @@ describe("projects documents API route", () => {
     expect(body.document.pathname).toBe("user-1/project-1/report.pdf");
   });
 
+  it("uploads a supported PowerPoint document", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    putMock.mockResolvedValue({
+      pathname: "user-1/project-1/investor-deck.pptx",
+      url: "https://blob.local/private-url",
+      downloadUrl: "https://blob.local/private-url?download=1",
+    });
+
+    const route = await import("@/app/api/projects/[projectId]/documents/route");
+
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File(["pptx body"], "investor-deck.pptx", {
+        type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      })
+    );
+
+    const response = await route.POST(
+      {
+        formData: async () => formData,
+      } as unknown as Request,
+      { params: Promise.resolve({ projectId: "project-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(putMock).toHaveBeenCalledWith(
+      "user-1/project-1/investor-deck.pptx",
+      expect.any(File),
+      expect.objectContaining({
+        access: "private",
+      })
+    );
+  });
+
   it("rejects unsupported extensions", async () => {
     authMock.mockResolvedValue({ user: { id: "user-1" } });
     const route = await import("@/app/api/projects/[projectId]/documents/route");

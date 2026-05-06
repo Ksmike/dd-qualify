@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMock = vi.fn();
 const getMock = vi.fn();
+const delMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
   auth: authMock,
@@ -9,6 +10,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@vercel/blob", () => ({
   get: getMock,
+  del: delMock,
 }));
 
 describe("project document read route", () => {
@@ -110,5 +112,23 @@ describe("project document read route", () => {
     expect(response.headers.get("etag")).toBe("etag-123");
     expect(await response.text()).toBe("Hello private blob");
   });
-});
 
+  it("deletes a private document when found", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    delMock.mockResolvedValue(undefined);
+
+    const route = await import(
+      "@/app/api/projects/[projectId]/documents/[...documentPath]/route"
+    );
+
+    const response = await route.DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({
+        projectId: "project-1",
+        documentPath: ["folder", "report.pdf"],
+      }),
+    });
+
+    expect(delMock).toHaveBeenCalledWith("user-1/project-1/folder/report.pdf");
+    expect(response.status).toBe(200);
+  });
+});

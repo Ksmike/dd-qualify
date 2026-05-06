@@ -47,4 +47,55 @@ export type MarketingLabels = {
 
 export type AppLabels = {
   marketing: MarketingLabels;
+  app: {
+    dashboard: {
+      heading: string;
+      description: string;
+      projectsHeading: string;
+      createProjectCta: string;
+      statusHeading: string;
+      inspectCta: string;
+      statuses: {
+        inprogress: string;
+        complete: string;
+        rejected: string;
+      };
+    };
+    projectInspect: {
+      heading: string;
+      statusLabel: string;
+      createdLabel: string;
+      idLabel: string;
+      copyIdAriaLabel: string;
+      copySuccessToast: string;
+      copyErrorToast: string;
+      documentsHeading: string;
+      fileInputLabel: string;
+      uploadInProgress: string;
+      dropzoneTitle: string;
+      dropzoneHint: string;
+      uploadQueueHeading: string;
+      uploadStatusQueued: string;
+      uploadStatusUploading: string;
+      uploadStatusUploaded: string;
+      uploadStatusFailed: string;
+      emptyDocuments: string;
+      loadingDocuments: string;
+      loadError: string;
+      uploadError: string;
+      viewFileCta: string;
+      deleteFileCta: string;
+      deleteInProgress: string;
+      deleteError: string;
+    };
+    projectCreation: {
+      heading: string;
+      description: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      filesLabel: string;
+      filesHint: string;
+      submitCta: string;
+    };
+  };
 };

@@ -3,8 +3,7 @@ import { render, screen } from "@testing-library/react";
 
 // Mock next/font/google — these are build-time transforms
 vi.mock("next/font/google", () => ({
-  Geist: () => ({ variable: "--font-geist-sans" }),
-  Geist_Mono: () => ({ variable: "--font-geist-mono" }),
+  Inter: () => ({ variable: "--font-inter" }),
 }));
 
 describe("RootLayout", () => {
@@ -20,7 +19,7 @@ describe("RootLayout", () => {
 
   it("exports metadata with title and description", async () => {
     const { metadata } = await import("@/app/layout");
-    expect(metadata.title).toBe("DD Qualify");
+    expect((metadata.title as string)).toContain("DD Qualify");
     expect(metadata.description).toContain("DD Qualify");
   });
 });

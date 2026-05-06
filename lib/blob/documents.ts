@@ -1,4 +1,13 @@
-const ALLOWED_DOCUMENT_EXTENSIONS = new Set([".txt", ".docx", ".pages", ".pdf"]);
+const ALLOWED_DOCUMENT_EXTENSIONS = new Set([
+  ".txt",
+  ".docx",
+  ".pages",
+  ".pdf",
+  ".ppt",
+  ".pptx",
+  ".key",
+  ".keynote",
+]);
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]+$/;
 const PATH_SEGMENT_PATTERN = /^[A-Za-z0-9._() -]+$/;
 

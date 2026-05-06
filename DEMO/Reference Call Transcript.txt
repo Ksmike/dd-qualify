@@ -1,0 +1,20 @@
+﻿James Harrington, former CTO at Meridian Analytics - 14 April 2026
+REFERENCE CALL TRANSCRIPT
+Candidate Company: NovaBridge Technologies
+Reference: James Harrington, former CTO at Meridian Analytics
+Date: 14 April 2026
+Conducted by: Investment Team
+Q: Can you describe how you worked with Priya at Meridian?
+A: Priya and I co-founded Meridian in 2018. She was COO, I was CTO. We worked together for about five years until the acquisition. She ran product, operations, and customer relationships while I handled the engineering side.
+Q: How did Meridian grow under her leadership?
+A: ARR went from about 800K to 2.1 million in the twelve months after the pivot. That was largely Priya - she identified that our initial horizontal analytics play wasn’t working and pushed us toward vertical SaaS for financial services. It was the right call.
+Q: How did her leadership style evolve as the company grew?
+A: She adapted well, actually. By the time we were at about 20 engineers she’d stepped back from code review and was focused more on product direction and customer relationships. There was a rough patch around the Series A - we had some attrition in the engineering team and she struggled to delegate during that period. I think she tried to do too much herself for about six months, which caused some burnout on her end.
+Q: What are her strengths in customer relationships?
+A: She genuinely listens. I’ve seen her take a customer complaint and turn it into a product feature within two weeks. The enterprise customers loved her because she’d get on calls personally and wasn’t afraid to say ‘we can’t do that yet, but here’s what we can do.’ Priya was usually accurate about timelines, maybe even conservative.
+Q: Any areas for growth?
+A: She’s great at identifying technical talent but she’s made some poor calls on senior commercial hires. The first VP Sales lasted about five months. She can be quite intense in disagreements. She’s not aggressive, but she’s very persistent - she’ll keep coming back to a point until she either convinces you or understands exactly why you disagree.
+Q: Were there any technology concerns during your time together?
+A: There was also a data security incident about eighteen months in - nothing catastrophic, but a misconfigured S3 bucket exposed some client metadata for about 48 hours before we caught it. Priya handled it well, full disclosure to affected clients, brought in an external audit, and we implemented proper security reviews after that. I’d say security wasn’t being prioritised early enough - that’s something she learned from.
+Q: Would you invest in her next venture?
+A: Without hesitation. She’s one of the best operators I’ve worked with. Whatever she builds next, I’d want to be involved.

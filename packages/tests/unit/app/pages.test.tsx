@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 // Mock child components used by pages
@@ -19,10 +19,64 @@ vi.mock("@/components/Header", () => ({
 vi.mock("@/components/Footer", () => ({
   Footer: () => <div data-testid="footer" />,
 }));
+vi.mock("@/app/(app)/project/[id]/ProjectDocumentsPanel", () => ({
+  ProjectDocumentsPanel: () => <div data-testid="project-documents-panel" />,
+}));
+vi.mock("@/app/(app)/project/[id]/ProjectHeader", () => ({
+  ProjectHeader: ({
+    projectName,
+    projectStatusLabel,
+    projectId,
+  }: {
+    projectName: string;
+    projectStatusLabel: string;
+    projectId: string;
+  }) => (
+    <div data-testid="project-header">
+      <p>{projectName}</p>
+      <p>{projectStatusLabel}</p>
+      <p>{projectId}</p>
+    </div>
+  ),
+}));
+vi.mock("@/components/settings/ApiKeySection", () => ({
+  ApiKeySection: () => <div data-testid="api-key-section" />,
+}));
+vi.mock("@/lib/actions/apiKeys", () => ({
+  getApiKeyStatuses: vi.fn().mockResolvedValue([]),
+}));
 
 // Mock auth for marketing layout
+const mockAuth = vi.fn().mockResolvedValue(null);
 vi.mock("@/lib/auth", () => ({
-  auth: vi.fn().mockResolvedValue(null),
+  auth: mockAuth,
+}));
+
+const mockRedirect = vi.fn((path: string) => {
+  throw new Error(`REDIRECT:${path}`);
+});
+const mockNotFound = vi.fn(() => {
+  throw new Error("NOT_FOUND");
+});
+vi.mock("next/navigation", async () => {
+  const actual = await vi.importActual<typeof import("next/navigation")>(
+    "next/navigation"
+  );
+  return {
+    ...actual,
+    redirect: mockRedirect,
+    notFound: mockNotFound,
+  };
+});
+
+const mockProjectModel = {
+  countByUserId: vi.fn(),
+  listByUserId: vi.fn(),
+  findByIdForUser: vi.fn(),
+  createForUser: vi.fn(),
+};
+vi.mock("@/lib/models/ProjectModel", () => ({
+  ProjectModel: mockProjectModel,
 }));
 
 // Mock labels for HomePage
@@ -72,33 +126,187 @@ vi.mock("@/labels", () => ({
           footnote: "Enterprise-ready API...",
         },
       },
+      app: {
+        dashboard: {
+          heading: "Dashboard",
+          description: "Welcome back.",
+          projectsHeading: "Projects",
+          createProjectCta: "Create project",
+          statusHeading: "Status",
+          inspectCta: "Inspect",
+          statuses: {
+            inprogress: "inprogress",
+            complete: "complete",
+            rejected: "rejected",
+          },
+        },
+        projectInspect: {
+          heading: "Project",
+          statusLabel: "Status",
+          createdLabel: "Created",
+          idLabel: "Project ID",
+          copyIdAriaLabel: "Copy project ID",
+          copySuccessToast: "Project ID copied to clipboard.",
+          copyErrorToast: "Could not copy project ID.",
+          documentsHeading: "Files",
+          fileInputLabel: "Upload files",
+          uploadInProgress: "Uploading...",
+          dropzoneTitle: "Drag and drop files to upload",
+          dropzoneHint: "Files upload automatically after drop.",
+          uploadQueueHeading: "Upload progress",
+          uploadStatusQueued: "queued",
+          uploadStatusUploading: "uploading",
+          uploadStatusUploaded: "uploaded",
+          uploadStatusFailed: "failed",
+          emptyDocuments: "No files uploaded yet.",
+          loadingDocuments: "Loading files...",
+          loadError: "Failed to load files.",
+          uploadError: "Failed to upload file.",
+          viewFileCta: "View",
+          deleteFileCta: "Delete",
+          deleteInProgress: "Deleting...",
+          deleteError: "Failed to delete file.",
+        },
+        projectCreation: {
+          heading: "Create project",
+          description: "Name your project and attach the source files to start qualification.",
+          nameLabel: "Project name",
+          namePlaceholder: "Acme diligence workspace",
+          filesLabel: "Files",
+          filesHint: "You can upload one or more files now.",
+          submitCta: "Create project",
+        },
+      },
     },
   }),
 }));
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockAuth.mockResolvedValue(null);
+});
+
 describe("DashboardPage", () => {
-  it("renders heading and welcome text", async () => {
+  it("renders heading and welcome text when user has projects", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", locale: "en" },
+    });
+    mockProjectModel.listByUserId.mockResolvedValue([
+      { id: "project-1", name: "Alpha Project", status: "inprogress" },
+      { id: "project-2", name: "Beta Project", status: "complete" },
+    ]);
+
     const { default: DashboardPage } = await import(
       "@/app/(app)/dashboard/page"
     );
-    render(<DashboardPage />);
+    const element = await DashboardPage();
+    render(element);
     expect(
       screen.getByRole("heading", { name: "Dashboard" })
     ).toBeInTheDocument();
     expect(screen.getByText("Welcome back.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Create project" })
+    ).toHaveAttribute("href", "/projects/new");
+    expect(screen.getByText("Alpha Project")).toBeInTheDocument();
+    expect(screen.getByText("Beta Project")).toBeInTheDocument();
+    expect(screen.getByText("inprogress")).toBeInTheDocument();
+    expect(screen.getByText("complete")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Alpha Project/i })
+    ).toHaveAttribute("href", "/project/project-1");
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("redirects to project creation when user has no projects", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", locale: "en" },
+    });
+    mockProjectModel.listByUserId.mockResolvedValue([]);
+
+    const { default: DashboardPage } = await import(
+      "@/app/(app)/dashboard/page"
+    );
+
+    await expect(DashboardPage()).rejects.toThrow("REDIRECT:/projects/new");
+  });
+});
+
+describe("ProjectInspectPage", () => {
+  it("renders project details", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", locale: "en" },
+    });
+    mockProjectModel.findByIdForUser.mockResolvedValue({
+      id: "project-1",
+      name: "Alpha Project",
+      status: "inprogress",
+      createdAt: new Date("2026-05-06T14:00:00.000Z"),
+    });
+
+    const { default: ProjectInspectPage } = await import(
+      "@/app/(app)/project/[id]/page"
+    );
+    const element = await ProjectInspectPage({
+      params: Promise.resolve({ id: "project-1" }),
+    });
+    render(element);
+
+    expect(screen.getByTestId("project-header")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Project")).toBeInTheDocument();
+    expect(screen.getByText("inprogress")).toBeInTheDocument();
+    expect(screen.getByText("project-1")).toBeInTheDocument();
+    expect(screen.getByTestId("project-documents-panel")).toBeInTheDocument();
+  });
+
+  it("calls notFound for an unknown project", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", locale: "en" },
+    });
+    mockProjectModel.findByIdForUser.mockResolvedValue(null);
+
+    const { default: ProjectInspectPage } = await import(
+      "@/app/(app)/project/[id]/page"
+    );
+
+    await expect(
+      ProjectInspectPage({ params: Promise.resolve({ id: "missing-project" }) })
+    ).rejects.toThrow("NOT_FOUND");
+  });
+});
+
+describe("ProjectCreationPage", () => {
+  it("renders heading and project form", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", locale: "en" },
+    });
+
+    const { default: ProjectCreationPage } = await import(
+      "@/app/(app)/projects/new/page"
+    );
+    const element = await ProjectCreationPage();
+    render(element);
+
+    expect(
+      screen.getByRole("heading", { name: "Create project" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Project name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Files")).toBeInTheDocument();
   });
 });
 
 describe("SettingsPage", () => {
-  it("renders heading and description", async () => {
+  it("renders heading and api key section", async () => {
     const { default: SettingsPage } = await import(
       "@/app/(app)/settings/page"
     );
-    render(<SettingsPage />);
+    const element = await SettingsPage();
+    render(element);
     expect(
       screen.getByRole("heading", { name: "Settings" })
     ).toBeInTheDocument();
-    expect(screen.getByText("Manage your preferences.")).toBeInTheDocument();
+    expect(screen.getByTestId("api-key-section")).toBeInTheDocument();
   });
 });
 

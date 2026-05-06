@@ -19,6 +19,9 @@ describe("blob document path helpers", () => {
   it("validates document filenames and extensions", () => {
     expect(sanitizeDocumentFilename("notes.txt")).toBe("notes.txt");
     expect(sanitizeDocumentFilename("report.PDF")).toBe("report.PDF");
+    expect(sanitizeDocumentFilename("deck.pptx")).toBe("deck.pptx");
+    expect(sanitizeDocumentFilename("slides.PPT")).toBe("slides.PPT");
+    expect(sanitizeDocumentFilename("presentation.key")).toBe("presentation.key");
     expect(sanitizeDocumentFilename("bad.exe")).toBeNull();
     expect(sanitizeDocumentFilename("deep/path/report.PDF")).toBeNull();
     expect(sanitizeDocumentFilename("../bad.pdf")).toBeNull();
@@ -27,6 +30,9 @@ describe("blob document path helpers", () => {
   it("validates document path segments", () => {
     expect(sanitizeDocumentPathSegments(["reports", "final.pdf"])).toBe(
       "reports/final.pdf"
+    );
+    expect(sanitizeDocumentPathSegments(["decks", "investor.pptx"])).toBe(
+      "decks/investor.pptx"
     );
     expect(sanitizeDocumentPathSegments(["..", "final.pdf"])).toBeNull();
     expect(sanitizeDocumentPathSegments(["reports", "final.exe"])).toBeNull();

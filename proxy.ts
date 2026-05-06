@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const { auth } = NextAuth(authConfig);
 
 // Routes that require authentication (the (app) route group)
-const protectedPrefixes = ["/dashboard", "/settings"];
+const protectedPrefixes = ["/dashboard", "/settings", "/projects", "/project"];
 
 // Routes only for unauthenticated users
 const authRoutes = ["/login", "/register"];

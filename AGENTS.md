@@ -51,6 +51,22 @@ This version has breaking changes — APIs, conventions, and file structure may 
 3. **No premature generalization** — Build for the current need. Generalize when a second use case arrives, not before.
 4. **Slots and children over deep prop drilling** — Use composition (`children`, render props, or HeroUI slots) to keep components flexible without exploding the prop surface.
 
+---
+
+# Icons — react-icons
+
+## Usage
+
+- **Use icons liberally** throughout the UI — navigation, buttons, empty states, list items, badges, and anywhere they improve scannability or visual hierarchy.
+- Import from the icon set that fits the context. Prefer **Lucide** (`react-icons/lu`) as the default set for consistency. Fall back to other sets (Heroicons `hi2`, Feather `fi`, etc.) only when Lucide doesn't have what you need.
+- Size icons with Tailwind classes (`className="size-4"`, `size-5`, etc.) rather than the `size` prop for consistency with the rest of the styling system.
+- Pair icons with text labels in navigation and buttons for accessibility. Use `aria-hidden="true"` on decorative icons and provide an `aria-label` on icon-only buttons.
+- Keep icon imports specific to avoid bundling the entire library:
+  ```tsx
+  import { LuSettings, LuLayoutDashboard } from "react-icons/lu";
+  ```
+- Don't wrap icons in extra components unless you're adding meaningful behavior.
+
 ## Localization & Labels
 
 - **Never hardcode user-facing copy in components/pages.** Put all UI text in locale label files under `labels/<locale>/...`.

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 const INVALID_PROJECT_ID_ERROR = "Invalid project ID.";
 const INVALID_DOCUMENT_ERROR =
-  "Unsupported document format. Allowed: .txt, .docx, .pages, .pdf.";
+  "Unsupported document format. Allowed: .txt, .docx, .pages, .pdf, .ppt, .pptx, .key, .keynote.";
 
 function getUserIdFromSession(session: Awaited<ReturnType<typeof auth>>) {
   return session?.user?.id ?? null;

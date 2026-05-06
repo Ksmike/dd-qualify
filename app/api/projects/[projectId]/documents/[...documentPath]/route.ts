@@ -1,4 +1,4 @@
-import { get } from "@vercel/blob";
+import { del, get } from "@vercel/blob";
 import { auth } from "@/lib/auth";
 import {
   buildProjectBlobPath,
@@ -31,7 +31,7 @@ export async function GET(
     return Response.json(
       {
         error:
-          "Unsupported document format or path. Allowed: .txt, .docx, .pages, .pdf.",
+          "Unsupported document format or path. Allowed: .txt, .docx, .pages, .pdf, .ppt, .pptx, .key, .keynote.",
       },
       { status: 400 }
     );
@@ -75,3 +75,48 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  _request: Request,
+  {
+    params,
+  }: { params: Promise<{ projectId: string; documentPath: string[] }> }
+) {
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+  if (!userId) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { projectId, documentPath } = await params;
+  const sanitizedProjectId = sanitizeProjectId(projectId);
+  if (!sanitizedProjectId) {
+    return Response.json({ error: "Invalid project ID." }, { status: 400 });
+  }
+
+  const sanitizedDocumentPath = sanitizeDocumentPathSegments(documentPath);
+  if (!sanitizedDocumentPath) {
+    return Response.json(
+      {
+        error:
+          "Unsupported document format or path. Allowed: .txt, .docx, .pages, .pdf, .ppt, .pptx, .key, .keynote.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const pathname = buildProjectBlobPath(
+    userId,
+    sanitizedProjectId,
+    sanitizedDocumentPath
+  );
+  if (!pathname) {
+    return Response.json({ error: "Invalid storage path." }, { status: 400 });
+  }
+
+  try {
+    await del(pathname);
+    return Response.json({ deleted: true }, { status: 200 });
+  } catch {
+    return Response.json({ error: "Failed to delete document." }, { status: 500 });
+  }
+}
