@@ -170,7 +170,7 @@ export function ReportDetailView({
       )}
 
       {/* Raw metadata fallback */}
-      {meta === null && artifact.metadata && (
+      {meta === null && artifact.metadata != null && (
         <section className="rounded-xl border border-divider bg-content1 p-5">
           <h2 className="text-lg font-semibold text-foreground">
             Raw metadata

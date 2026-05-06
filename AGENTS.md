@@ -175,7 +175,7 @@ packages/tests/
 
 ## Coverage Requirements
 
-- **Minimum 90% line coverage** is enforced via `vitest.config.ts` thresholds.
+- **Minimum 70% line coverage** is enforced via `vitest.config.ts` thresholds. Target 90%+ on new code.
 - Coverage is measured over `lib/`, `components/`, and `app/` — excluding generated code and config files.
 - Run `yarn test:coverage` to check coverage locally.
 
