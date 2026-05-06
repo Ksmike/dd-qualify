@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { toast } from "@heroui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ProjectInspectDocument = {
@@ -28,10 +30,15 @@ type ProjectDocumentsPanelLabels = {
   deleteFileCta: string;
   deleteInProgress: string;
   deleteError: string;
+  beDiligentCta: string;
+  setupApiKeysMessage: string;
+  setupApiKeysToast: string;
+  diligenceStartToast: string;
 };
 
 type ProjectDocumentsPanelProps = {
   projectId: string;
+  hasAnyApiKeys: boolean;
   labels: ProjectDocumentsPanelLabels;
 };
 
@@ -65,6 +72,7 @@ function formatSize(bytes: number): string {
 
 export function ProjectDocumentsPanel({
   projectId,
+  hasAnyApiKeys,
   labels,
 }: ProjectDocumentsPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -241,6 +249,16 @@ export function ProjectDocumentsPanel({
     void uploadFiles(pickedFiles);
   }
 
+  function handleBeDiligent() {
+    if (!hasAnyApiKeys) {
+      toast.warning(labels.setupApiKeysToast);
+      window.open("/settings", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    toast.info(labels.diligenceStartToast);
+  }
+
   return (
     <section className="space-y-4 rounded-xl border border-divider bg-content1 p-6">
       <h2 className="text-lg font-semibold text-foreground">
@@ -332,41 +350,65 @@ export function ProjectDocumentsPanel({
       ) : documents.length === 0 ? (
         <p className="text-sm text-foreground/70">{labels.emptyDocuments}</p>
       ) : (
-        <ul className="space-y-2">
-          {documents.map((document) => (
-            <li
-              key={document.pathname}
-              className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2"
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2">
+            <button
+              type="button"
+              onClick={handleBeDiligent}
+              className={`rounded-md px-3 py-2 text-xs font-medium transition-opacity ${
+                hasAnyApiKeys
+                  ? "bg-success/20 text-success hover:opacity-90"
+                  : "bg-warning/20 text-warning hover:opacity-90"
+              }`}
             >
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {document.filename}
-                </p>
-                <p className="text-xs text-foreground/60">
-                  {formatSize(document.size)}
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                <a
-                  href={buildDocumentReadUrl(projectId, document.filename)}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  {labels.viewFileCta}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteDocument(document)}
-                  disabled={deletingPaths.includes(document.pathname)}
-                  className="text-xs font-medium text-danger hover:underline disabled:opacity-50"
-                >
-                  {deletingPaths.includes(document.pathname)
-                    ? labels.deleteInProgress
-                    : labels.deleteFileCta}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+              {labels.beDiligentCta}
+            </button>
+            {!hasAnyApiKeys && (
+              <p className="text-xs text-foreground/70">
+                {labels.setupApiKeysMessage}{" "}
+                <Link href="/settings" target="_blank" className="text-primary underline">
+                  Settings
+                </Link>
+              </p>
+            )}
+          </div>
+
+          <ul className="space-y-2">
+            {documents.map((document) => (
+              <li
+                key={document.pathname}
+                className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {document.filename}
+                  </p>
+                  <p className="text-xs text-foreground/60">
+                    {formatSize(document.size)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <a
+                    href={buildDocumentReadUrl(projectId, document.filename)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {labels.viewFileCta}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteDocument(document)}
+                    disabled={deletingPaths.includes(document.pathname)}
+                    className="text-xs font-medium text-danger hover:underline disabled:opacity-50"
+                  >
+                    {deletingPaths.includes(document.pathname)
+                      ? labels.deleteInProgress
+                      : labels.deleteFileCta}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );

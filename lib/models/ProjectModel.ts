@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 
-export type ProjectStatus = "inprogress" | "complete" | "rejected";
+export type ProjectStatus = "draft" | "inprogress" | "complete" | "rejected";
 
 export const ProjectModel = {
   async countByUserId(userId: string): Promise<number> {
@@ -50,8 +50,27 @@ export const ProjectModel = {
     return db.project.create({
       data: {
         name: input.name,
+        status: "draft",
         userId: input.userId,
       },
     });
+  },
+
+  async updateStatusForUser(input: {
+    projectId: string;
+    userId: string;
+    status: ProjectStatus;
+  }): Promise<boolean> {
+    const result = await db.project.updateMany({
+      where: {
+        id: input.projectId,
+        userId: input.userId,
+      },
+      data: {
+        status: input.status,
+      },
+    });
+
+    return result.count > 0;
   },
 };

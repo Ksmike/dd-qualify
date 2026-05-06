@@ -2,6 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectDocumentsPanel } from "@/app/(app)/project/[id]/ProjectDocumentsPanel";
+import { toast } from "@heroui/react";
+
+vi.mock("@heroui/react", async () => {
+  const actual = await vi.importActual<typeof import("@heroui/react")>(
+    "@heroui/react"
+  );
+  return {
+    ...actual,
+    toast: {
+      warning: vi.fn(),
+      info: vi.fn(),
+    },
+  };
+});
 
 const labels = {
   documentsHeading: "Files",
@@ -22,6 +36,10 @@ const labels = {
   deleteFileCta: "Delete",
   deleteInProgress: "Deleting...",
   deleteError: "Failed to delete file.",
+  beDiligentCta: "Be Diligent",
+  setupApiKeysMessage: "Add at least one API key in Settings to run due diligence.",
+  setupApiKeysToast: "No API keys found. Opening Settings in a new tab.",
+  diligenceStartToast: "Due diligence workflow start is coming next.",
 };
 
 describe("ProjectDocumentsPanel", () => {
@@ -47,7 +65,13 @@ describe("ProjectDocumentsPanel", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ProjectDocumentsPanel projectId="project-1" labels={labels} />);
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        hasAnyApiKeys={true}
+        labels={labels}
+      />
+    );
 
     expect(await screen.findByText("report.pdf")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
@@ -89,7 +113,13 @@ describe("ProjectDocumentsPanel", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(<ProjectDocumentsPanel projectId="project-1" labels={labels} />);
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        hasAnyApiKeys={true}
+        labels={labels}
+      />
+    );
 
     const input = await screen.findByLabelText("Upload files");
     await user.upload(input, new File(["hello"], "evidence.txt", { type: "text/plain" }));
@@ -127,7 +157,13 @@ describe("ProjectDocumentsPanel", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ProjectDocumentsPanel projectId="project-1" labels={labels} />);
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        hasAnyApiKeys={true}
+        labels={labels}
+      />
+    );
 
     const droppedFile = new File(["dragged"], "dragged.pdf", {
       type: "application/pdf",
@@ -178,7 +214,13 @@ describe("ProjectDocumentsPanel", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(<ProjectDocumentsPanel projectId="project-1" labels={labels} />);
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        hasAnyApiKeys={true}
+        labels={labels}
+      />
+    );
 
     expect(await screen.findByText("report.pdf")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Delete" }));
@@ -190,5 +232,45 @@ describe("ProjectDocumentsPanel", () => {
       );
     });
     expect(screen.queryByText("report.pdf")).not.toBeInTheDocument();
+  });
+
+  it("routes users without API keys to settings in a new tab", async () => {
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockImplementation(() => null);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            filename: "report.pdf",
+            pathname: "user-1/project-1/report.pdf",
+            size: 2048,
+            uploadedAt: "2026-05-06T00:00:00.000Z",
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        hasAnyApiKeys={false}
+        labels={labels}
+      />
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Be Diligent" }));
+
+    expect(toast.warning).toHaveBeenCalledWith(
+      "No API keys found. Opening Settings in a new tab."
+    );
+    expect(openSpy).toHaveBeenCalledWith(
+      "/settings",
+      "_blank",
+      "noopener,noreferrer"
+    );
   });
 });

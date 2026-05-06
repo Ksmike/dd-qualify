@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { ProjectModel } from "@/lib/models/ProjectModel";
 
@@ -24,4 +25,27 @@ export async function createProject(formData: FormData): Promise<void> {
   });
 
   redirect("/dashboard");
+}
+
+export async function startProjectDueDiligence(
+  projectId: string
+): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "Not authenticated." };
+  }
+
+  const updated = await ProjectModel.updateStatusForUser({
+    projectId,
+    userId: session.user.id,
+    status: "inprogress",
+  });
+
+  if (!updated) {
+    return { error: "Project not found." };
+  }
+
+  revalidatePath(`/project/${projectId}`);
+  revalidatePath("/dashboard");
+  return {};
 }

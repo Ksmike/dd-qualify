@@ -56,6 +56,7 @@ export type AppLabels = {
       statusHeading: string;
       inspectCta: string;
       statuses: {
+        draft: string;
         inprogress: string;
         complete: string;
         rejected: string;
@@ -87,6 +88,10 @@ export type AppLabels = {
       deleteFileCta: string;
       deleteInProgress: string;
       deleteError: string;
+      beDiligentCta: string;
+      setupApiKeysMessage: string;
+      setupApiKeysToast: string;
+      diligenceStartToast: string;
     };
     projectCreation: {
       heading: string;

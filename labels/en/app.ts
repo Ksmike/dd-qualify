@@ -9,7 +9,8 @@ export const appLabels: AppLabels["app"] = {
     statusHeading: "Status",
     inspectCta: "Inspect",
     statuses: {
-      inprogress: "inprogress",
+      draft: "draft",
+      inprogress: "in progress",
       complete: "complete",
       rejected: "rejected",
     },
@@ -40,6 +41,10 @@ export const appLabels: AppLabels["app"] = {
     deleteFileCta: "Delete",
     deleteInProgress: "Deleting...",
     deleteError: "Failed to delete file.",
+    beDiligentCta: "Be Diligent",
+    setupApiKeysMessage: "Add at least one API key in Settings to run due diligence.",
+    setupApiKeysToast: "No API keys found. Opening Settings in a new tab.",
+    diligenceStartToast: "Due diligence workflow start is coming next.",
   },
   projectCreation: {
     heading: "Create project",

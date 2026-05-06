@@ -4,6 +4,7 @@ import { getLabelsForLocale } from "@/labels";
 import { ProjectModel } from "@/lib/models/ProjectModel";
 import { ProjectDocumentsPanel } from "@/app/(app)/project/[id]/ProjectDocumentsPanel";
 import { ProjectHeader } from "@/app/(app)/project/[id]/ProjectHeader";
+import { getApiKeyStatuses } from "@/lib/actions/apiKeys";
 
 export const metadata = {
   title: "Project | DD Qualify",
@@ -33,6 +34,8 @@ export default async function ProjectInspectPage({
   }
 
   const { labels } = getLabelsForLocale(session.user.locale ?? "en");
+  const apiKeyStatuses = await getApiKeyStatuses();
+  const hasAnyApiKeys = apiKeyStatuses.some((status) => status.isSet);
   const formattedCreatedAt = new Intl.DateTimeFormat(session.user.locale ?? "en", {
     dateStyle: "medium",
   }).format(project.createdAt);
@@ -50,6 +53,7 @@ export default async function ProjectInspectPage({
 
       <ProjectDocumentsPanel
         projectId={project.id}
+        hasAnyApiKeys={hasAnyApiKeys}
         labels={labels.app.projectInspect}
       />
     </div>
