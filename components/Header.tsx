@@ -8,69 +8,36 @@ type HeaderUser = {
   image?: string | null;
 } | null;
 
-export function Header({
-  user,
-  variant = "light",
-}: {
-  user?: HeaderUser;
-  variant?: "light" | "dark";
-}) {
-  const dark = variant === "dark";
-
+export function Header({ user }: { user?: HeaderUser }) {
   return (
-    <header
-      className={`flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 ${
-        dark
-          ? "border-b border-white/8 bg-[#0f0e0d]"
-          : "border-b border-divider bg-background"
-      }`}
-    >
+    <header className="flex items-center justify-between border-b border-divider bg-background px-4 py-3 sm:px-6 sm:py-4">
       <Link
         href="/"
-        className={`text-base font-semibold sm:text-lg ${dark ? "text-white" : "text-foreground"}`}
+        className="text-base font-semibold text-foreground sm:text-lg"
       >
         DD Qualify
       </Link>
       <nav className="flex items-center gap-1 sm:gap-2">
-        {/* Hide nav links on very small screens */}
         <Link
           href="/#workflow"
-          className={`hidden sm:inline-block text-sm font-medium transition-colors px-2 ${
-            dark
-              ? "text-white/50 hover:text-white"
-              : "text-foreground/70 hover:text-foreground"
-          }`}
+          className="hidden sm:inline-block text-sm font-medium text-foreground/70 transition-colors hover:text-foreground px-2"
         >
           Workflow
         </Link>
         <Link
           href="/#coverage"
-          className={`hidden sm:inline-block text-sm font-medium transition-colors px-2 ${
-            dark
-              ? "text-white/50 hover:text-white"
-              : "text-foreground/70 hover:text-foreground"
-          }`}
+          className="hidden sm:inline-block text-sm font-medium text-foreground/70 transition-colors hover:text-foreground px-2"
         >
           Coverage
         </Link>
         <Link
           href="/dashboard"
-          className={`hidden md:inline-block text-sm font-medium transition-colors px-2 ${
-            dark
-              ? "text-white/50 hover:text-white"
-              : "text-foreground/70 hover:text-foreground"
-          }`}
+          className="hidden md:inline-block text-sm font-medium text-foreground/70 transition-colors hover:text-foreground px-2"
         >
           Dashboard
         </Link>
 
-        <ThemeSwitcher
-          className={
-            dark
-              ? "text-white/40 hover:text-white hover:bg-white/10"
-              : "text-foreground/40 hover:text-foreground hover:bg-content2"
-          }
-        />
+        <ThemeSwitcher />
 
         {user ? (
           <UserMenu user={user} />
