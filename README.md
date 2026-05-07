@@ -89,4 +89,4 @@ Install local repo hooks once:
 yarn setup:hooks
 ```
 
-This configures `.githooks/pre-merge-commit`, which runs `yarn build` and `yarn test` when merging into `main`.
+This configures `.githooks/pre-merge-commit` and `.githooks/pre-commit`, which run `yarn build` and `yarn test` when merging into `main` and when committing directly on `main`.

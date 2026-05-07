@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${SKIP_MAIN_GATES:-0}" == "1" ]]; then
+  echo "[pre-commit] SKIP_MAIN_GATES=1 set, skipping checks."
+  exit 0
+fi
+
+branch="$(git symbolic-ref --quiet --short HEAD || true)"
+if [[ "$branch" != "main" ]]; then
+  exit 0
+fi
+
+echo "[pre-commit] Running build + tests before committing on main..."
+yarn build
+yarn test
+echo "[pre-commit] Checks passed."
