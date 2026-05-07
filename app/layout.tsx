@@ -36,7 +36,6 @@ export default function RootLayout({
       className={`${inter.variable} h-full antialiased overflow-x-hidden`}
     >
       <head>
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col overflow-x-hidden w-full">

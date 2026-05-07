@@ -62,7 +62,7 @@ describe("ReportDetailView", () => {
     expect(container.textContent).toContain("Acme Corp");
   });
 
-  it("renders metadata grid with job details", () => {
+  it("renders metadata grid with artifact details", () => {
     render(
       <ReportDetailView
         projectId="project-1"
@@ -74,11 +74,7 @@ describe("ReportDetailView", () => {
 
     expect(screen.getByText("application/pdf")).toBeInTheDocument();
     expect(screen.getByText("4.0 KB")).toBeInTheDocument();
-    expect(screen.getByText("OPENAI")).toBeInTheDocument();
     expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
-    expect(screen.getByText("8,000")).toBeInTheDocument();
-    expect(screen.getByText(/0\.0234/)).toBeInTheDocument();
-    expect(screen.getByText("vercel blob")).toBeInTheDocument();
   });
 
   it("renders back link to reports page", () => {

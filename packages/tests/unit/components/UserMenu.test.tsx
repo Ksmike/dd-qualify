@@ -22,7 +22,10 @@ describe("UserMenu", () => {
       />
     );
     const img = screen.getByAltText("Jane Doe");
-    expect(img).toHaveAttribute("src", "https://example.com/avatar.png");
+    expect(img).toHaveAttribute("src");
+    expect(img.getAttribute("src")).toContain(
+      encodeURIComponent("https://example.com/avatar.png")
+    );
   });
 
   it("shows dropdown on click", async () => {

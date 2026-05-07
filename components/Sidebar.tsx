@@ -55,12 +55,7 @@ export function Sidebar() {
 
   // Fetch on projectId change
   useEffect(() => {
-    if (!projectId) {
-      setProjectSidebarData(null);
-      return;
-    }
-
-    refreshSidebarData();
+    if (projectId) refreshSidebarData();
   }, [projectId, refreshSidebarData]);
 
   // Listen for explicit sidebar refresh events (dispatched when project state changes)
@@ -185,10 +180,12 @@ function ProjectNav({
   pathname: string;
   highlightSettings: boolean;
 }) {
+  const activeProjectSidebarData = projectId ? projectSidebarData : null;
+
   const projectSubNav = buildProjectSubNav({
-    hasInsights: projectSidebarData?.hasInsights ?? false,
-    hasReports: projectSidebarData?.hasReports ?? false,
-    hasEnquiries: projectSidebarData?.hasEnquiries ?? false,
+    hasInsights: activeProjectSidebarData?.hasInsights ?? false,
+    hasReports: activeProjectSidebarData?.hasReports ?? false,
+    hasEnquiries: activeProjectSidebarData?.hasEnquiries ?? false,
   });
 
   return (
@@ -205,9 +202,9 @@ function ProjectNav({
       {/* Project name label */}
       <p
         className="mb-1 truncate px-3 text-xs font-semibold uppercase tracking-wider text-foreground/40"
-        title={projectSidebarData?.name ?? undefined}
+        title={activeProjectSidebarData?.name ?? undefined}
       >
-        {projectSidebarData?.name ?? <span className="opacity-60">Loading…</span>}
+        {activeProjectSidebarData?.name ?? <span className="opacity-60">Loading…</span>}
       </p>
 
       {/* Sub-nav items */}

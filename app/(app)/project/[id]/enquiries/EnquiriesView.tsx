@@ -113,8 +113,8 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
   }, [thread.length, isPending]);
 
   return (
-    <div className="mx-auto flex h-full min-h-[70svh] w-full max-w-5xl flex-col">
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-divider bg-content1">
+    <div className="mx-auto flex h-full min-h-[70svh] w-full min-w-0 max-w-5xl flex-col overflow-x-hidden">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-divider bg-content1">
         <div className="shrink-0 space-y-3 border-b border-divider px-4 py-4 sm:px-5">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -125,19 +125,19 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-2 text-sm text-foreground/80">
               <LuSparkles aria-hidden="true" className="size-4 text-primary" />
               <p>{labels.sampleQuestionsHeading}</p>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
               {sampleQuestions.map((sample) => (
                 <button
                   key={sample}
                   type="button"
                   onClick={() => submitQuestion(sample)}
                   disabled={isPending}
-                  className="whitespace-nowrap rounded-md border border-divider bg-background px-3 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-content2 disabled:opacity-60"
+                  className="max-w-full rounded-md border border-divider bg-background px-3 py-1.5 text-left text-xs text-foreground/80 transition-colors hover:bg-content2 disabled:opacity-60 sm:whitespace-nowrap"
                 >
                   {sample}
                 </button>
@@ -156,7 +156,7 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
                 key={message.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`rounded-lg border px-3 py-2 ${
+                className={`min-w-0 rounded-lg border px-3 py-2 ${
                   message.role === "user"
                     ? "ml-6 border-primary/30 bg-primary/10 sm:ml-12"
                     : "mr-6 border-divider bg-background sm:mr-12"
@@ -182,7 +182,10 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
                     </p>
                     <ul className="space-y-0.5">
                       {message.sources.map((source) => (
-                        <li key={`${message.id}-${source}`} className="text-[11px] text-foreground/60">
+                        <li
+                          key={`${message.id}-${source}`}
+                          className="break-words text-[11px] text-foreground/60"
+                        >
                           {source}
                         </li>
                       ))}
@@ -231,7 +234,7 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
                 disabled={!canSend}
                 whileHover={{ scale: canSend ? 1.02 : 1 }}
                 whileTap={{ scale: canSend ? 0.98 : 1 }}
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 sm:w-auto"
               >
                 <LuSend aria-hidden="true" className="size-4" />
                 {isPending ? labels.sendingCta : labels.sendCta}

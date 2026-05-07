@@ -33,7 +33,9 @@ export default async function AppLayout({
         {/* Desktop sidebar */}
         <Sidebar />
 
-        <main className="flex-1 min-h-0 min-w-0 overflow-auto p-4 sm:p-6">{children}</main>
+        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          {children}
+        </main>
       </div>
     </Providers>
   );

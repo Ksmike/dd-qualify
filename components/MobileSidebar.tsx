@@ -29,9 +29,10 @@ function buildProjectSubNav(input: {
 }
 
 export function MobileSidebar() {
-  const [open, setOpen] = useState(false);
+  const [openPathname, setOpenPathname] = useState<string | null>(null);
   const [highlightSettings, setHighlightSettings] = useState(false);
   const pathname = usePathname();
+  const isOpen = openPathname === pathname;
   const projectMatch = pathname.match(/^\/project\/([^/]+)/);
   const projectId = projectMatch?.[1] ?? null;
   const [projectSidebarData, setProjectSidebarData] = useState<{
@@ -50,7 +51,7 @@ export function MobileSidebar() {
   }, [projectId]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
 
     // Save current scroll position and lock the page in place.
     // Using position:fixed on body is the most reliable way to prevent
@@ -76,16 +77,11 @@ export function MobileSidebar() {
       // Restore scroll position after unlocking
       window.scrollTo(scrollX, scrollY);
     };
-  }, [open]);
+  }, [isOpen]);
 
   // Fetch on projectId change
   useEffect(() => {
-    if (!projectId) {
-      setProjectSidebarData(null);
-      return;
-    }
-
-    refreshSidebarData();
+    if (projectId) refreshSidebarData();
   }, [projectId, refreshSidebarData]);
 
   // Listen for explicit sidebar refresh events
@@ -114,11 +110,6 @@ export function MobileSidebar() {
     };
   }, [projectId, refreshSidebarData]);
 
-  // Close on route change
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
   useEffect(() => {
     function handleHighlightSettings() {
       setHighlightSettings(true);
@@ -131,17 +122,26 @@ export function MobileSidebar() {
     };
   }, []);
 
+  const activeProjectSidebarData = projectId ? projectSidebarData : null;
   const projectSubNav = buildProjectSubNav({
-    hasInsights: projectSidebarData?.hasInsights ?? false,
-    hasReports: projectSidebarData?.hasReports ?? false,
-    hasEnquiries: projectSidebarData?.hasEnquiries ?? false,
+    hasInsights: activeProjectSidebarData?.hasInsights ?? false,
+    hasReports: activeProjectSidebarData?.hasReports ?? false,
+    hasEnquiries: activeProjectSidebarData?.hasEnquiries ?? false,
   });
+
+  function openMenu() {
+    setOpenPathname(pathname);
+  }
+
+  function closeMenu() {
+    setOpenPathname(null);
+  }
 
   return (
     <>
       {/* Hamburger */}
       <motion.button
-        onClick={() => setOpen(true)}
+        onClick={openMenu}
         animate={
           highlightSettings
             ? { x: [0, -4, 4, -2, 2, 0], scale: [1, 1.06, 1] }
@@ -157,10 +157,10 @@ export function MobileSidebar() {
       </motion.button>
 
       {/* Backdrop */}
-      {open && (
+      {isOpen && (
         <div
           className="fixed inset-0 z-[60] bg-black/50 touch-none"
-          onClick={() => setOpen(false)}
+          onClick={closeMenu}
           onTouchMove={(e) => e.preventDefault()}
           aria-hidden="true"
         />
@@ -169,15 +169,15 @@ export function MobileSidebar() {
       {/* Slide-out panel */}
       <aside
         className={`fixed inset-y-0 left-0 z-[70] flex w-64 flex-col bg-background shadow-xl transition-transform duration-200 ease-in-out overscroll-contain ${
-          open ? "translate-x-0" : "-translate-x-full"
+          isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        role={open ? "dialog" : undefined}
-        aria-modal={open ? true : undefined}
+        role={isOpen ? "dialog" : undefined}
+        aria-modal={isOpen ? true : undefined}
       >
         <div className="flex items-center justify-between border-b border-divider px-4 py-4">
           <span className="text-base font-semibold text-foreground">DD Qualify</span>
           <button
-            onClick={() => setOpen(false)}
+            onClick={closeMenu}
             className="rounded-md p-1.5 text-foreground/60 transition-colors hover:bg-content2 hover:text-foreground"
             aria-label="Close menu"
           >
@@ -192,7 +192,7 @@ export function MobileSidebar() {
             <>
               <Link
                 href="/dashboard"
-                onClick={() => setOpen(false)}
+                onClick={closeMenu}
                 className="mb-3 flex items-center gap-1 text-xs font-medium text-foreground/40 transition-colors hover:text-foreground/70"
               >
                 <FiChevronLeft className="h-3.5 w-3.5" />
@@ -201,9 +201,9 @@ export function MobileSidebar() {
 
               <p
                 className="mb-1 truncate px-3 text-xs font-semibold uppercase tracking-wider text-foreground/40"
-                title={projectSidebarData?.name ?? undefined}
+                title={activeProjectSidebarData?.name ?? undefined}
               >
-                {projectSidebarData?.name ?? <span className="opacity-60">Loading…</span>}
+                {activeProjectSidebarData?.name ?? <span className="opacity-60">Loading…</span>}
               </p>
 
               {projectSubNav.map(({ label, suffix }) => {
@@ -216,7 +216,7 @@ export function MobileSidebar() {
                   <Link
                     key={href}
                     href={href}
-                    onClick={() => setOpen(false)}
+                    onClick={closeMenu}
                     className={`ml-2 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
                         ? "bg-content2 text-foreground"
@@ -244,7 +244,7 @@ export function MobileSidebar() {
               >
                 <Link
                   href="/settings"
-                  onClick={() => setOpen(false)}
+                  onClick={closeMenu}
                   className={`rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                     pathname === "/settings"
                       ? "bg-content2 text-foreground"
@@ -260,7 +260,7 @@ export function MobileSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setOpen(false)}
+                onClick={closeMenu}
                 className={`rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                   pathname === item.href
                     ? "bg-content2 text-foreground"

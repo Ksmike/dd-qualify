@@ -36,14 +36,14 @@ export default async function DashboardPage() {
       </h1>
       <p className="mt-2 text-foreground/60">{labels.app.dashboard.description}</p>
 
-      <section className="mt-8">
-        <div className="flex items-center justify-between">
+      <section className="mt-8 min-w-0">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-foreground">
             {labels.app.dashboard.projectsHeading}
           </h2>
           <Link
             href="/projects/new"
-            className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
           >
             {labels.app.dashboard.createProjectCta}
           </Link>
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
                     {labels.app.dashboard.statusHeading}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses[project.status]}`}
                   >

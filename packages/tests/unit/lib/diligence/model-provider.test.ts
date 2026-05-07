@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { ApiKeyProvider } from "@/lib/generated/prisma/client";
 
 vi.mock("@/lib/generated/prisma/client", () => ({
   ApiKeyProvider: { OPENAI: "OPENAI", ANTHROPIC: "ANTHROPIC", GOOGLE: "GOOGLE" },
@@ -25,14 +26,14 @@ const { ModelProviderRegistry } = await import("@/lib/diligence/model-provider")
 describe("ModelProviderRegistry", () => {
   it("creates a registry with all three providers", () => {
     const registry = new ModelProviderRegistry();
-    expect(registry.getProvider("OPENAI" as any)).toBeDefined();
-    expect(registry.getProvider("ANTHROPIC" as any)).toBeDefined();
-    expect(registry.getProvider("GOOGLE" as any)).toBeDefined();
+    expect(registry.getProvider(ApiKeyProvider.OPENAI)).toBeDefined();
+    expect(registry.getProvider(ApiKeyProvider.ANTHROPIC)).toBeDefined();
+    expect(registry.getProvider(ApiKeyProvider.GOOGLE)).toBeDefined();
   });
 
   it("throws for unsupported provider", () => {
     const registry = new ModelProviderRegistry();
-    expect(() => registry.getProvider("UNKNOWN" as any)).toThrow(
+    expect(() => registry.getProvider("UNKNOWN" as ApiKeyProvider)).toThrow(
       "Unsupported provider: UNKNOWN"
     );
   });
@@ -40,10 +41,10 @@ describe("ModelProviderRegistry", () => {
   describe("OpenAI provider", () => {
     it("creates a ChatOpenAI model with correct config", () => {
       const registry = new ModelProviderRegistry();
-      const provider = registry.getProvider("OPENAI" as any);
+      const provider = registry.getProvider(ApiKeyProvider.OPENAI);
 
       provider.createChatModel({
-        provider: "OPENAI" as any,
+        provider: ApiKeyProvider.OPENAI,
         model: "gpt-4o",
         apiKey: "sk-test",
         temperature: 0.5,
@@ -60,10 +61,10 @@ describe("ModelProviderRegistry", () => {
 
     it("uses default temperature 0 and maxRetries 2", () => {
       const registry = new ModelProviderRegistry();
-      const provider = registry.getProvider("OPENAI" as any);
+      const provider = registry.getProvider(ApiKeyProvider.OPENAI);
 
       provider.createChatModel({
-        provider: "OPENAI" as any,
+        provider: ApiKeyProvider.OPENAI,
         model: "gpt-4o",
         apiKey: "sk-test",
       });
@@ -80,10 +81,10 @@ describe("ModelProviderRegistry", () => {
   describe("Anthropic provider", () => {
     it("creates a ChatAnthropic model with correct config", () => {
       const registry = new ModelProviderRegistry();
-      const provider = registry.getProvider("ANTHROPIC" as any);
+      const provider = registry.getProvider(ApiKeyProvider.ANTHROPIC);
 
       provider.createChatModel({
-        provider: "ANTHROPIC" as any,
+        provider: ApiKeyProvider.ANTHROPIC,
         model: "claude-3-5-sonnet",
         apiKey: "sk-ant-test",
         temperature: 0.2,
@@ -102,10 +103,10 @@ describe("ModelProviderRegistry", () => {
   describe("Google provider", () => {
     it("creates a ChatGoogleGenerativeAI model with correct config", () => {
       const registry = new ModelProviderRegistry();
-      const provider = registry.getProvider("GOOGLE" as any);
+      const provider = registry.getProvider(ApiKeyProvider.GOOGLE);
 
       provider.createChatModel({
-        provider: "GOOGLE" as any,
+        provider: ApiKeyProvider.GOOGLE,
         model: "gemini-2.5-flash",
         apiKey: "AIzaSy-test",
       });

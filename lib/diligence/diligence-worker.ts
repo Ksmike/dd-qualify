@@ -4,10 +4,7 @@ import { buildProjectBlobPrefix } from "@/lib/blob/documents";
 import { DiligenceLLMService } from "@/lib/diligence/diligence-llm-service";
 import { getStageProgressPercent, getNextStage, STAGE_TO_QUESTION } from "@/lib/diligence/stages";
 import { getStagePromptPlan } from "@/lib/diligence/prompts";
-import {
-  extractDocument,
-  getLowercaseExtension,
-} from "@/lib/diligence/document-extractors";
+import { extractDocument } from "@/lib/diligence/document-extractors";
 import { chunkDocument, type ChunkRecord } from "@/lib/diligence/chunker";
 import {
   corroborateClaims,

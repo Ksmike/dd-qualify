@@ -80,3 +80,13 @@ yarn test
 yarn test:watch
 yarn test:coverage
 ```
+
+## Git Hooks
+
+Install local repo hooks once:
+
+```bash
+yarn setup:hooks
+```
+
+This configures `.githooks/pre-merge-commit`, which runs `yarn build` and `yarn test` when merging into `main`.

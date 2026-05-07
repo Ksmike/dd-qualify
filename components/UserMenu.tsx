@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { logout } from "@/lib/actions/auth";
 
@@ -46,9 +47,11 @@ export function UserMenu({ user }: UserMenuProps) {
         aria-expanded={open}
       >
         {user.image ? (
-          <img
+          <Image
             src={user.image}
             alt={user.name ?? "Avatar"}
+            width={32}
+            height={32}
             className="h-8 w-8 rounded-full object-cover"
           />
         ) : (

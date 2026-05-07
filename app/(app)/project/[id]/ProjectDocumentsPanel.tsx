@@ -757,7 +757,7 @@ export function ProjectDocumentsPanel({
                       <p className="mt-1 text-xs text-danger">{document.processingError}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 shrink-0">
+                  <div className="flex flex-wrap items-center gap-4 sm:shrink-0">
                     <a
                       href={buildDocumentReadUrl(projectId, document.filename)}
                       className="text-xs font-medium text-primary hover:underline"
@@ -987,9 +987,9 @@ export function ProjectDocumentsPanel({
                       : "-"}
                   </motion.p>
                 </AnimatePresence>
-                <p className="text-foreground/70">
+                <p className="min-w-0 text-foreground/70">
                   {labels.diligenceJobIdLabel}:{" "}
-                  <span className="font-mono">{diligenceJob.id}</span>
+                  <span className="break-all font-mono">{diligenceJob.id}</span>
                 </p>
                 <motion.p
                   key={`${diligenceJob.id}-tokens-${diligenceJob.tokenUsageTotal}`}
@@ -1049,12 +1049,12 @@ export function ProjectDocumentsPanel({
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`flex items-center justify-between rounded-md border px-2.5 py-1.5 text-xs ${stageStatusClassName(
+                        className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs ${stageStatusClassName(
                           stageRun.status,
                           isCurrentStage
                         )}`}
                       >
-                        <span className="text-foreground">
+                        <span className="min-w-0 truncate text-foreground">
                           {labels.diligenceStages[stageRun.stage]}
                         </span>
                         <motion.span
@@ -1076,7 +1076,7 @@ export function ProjectDocumentsPanel({
                 diligenceJob.status === "WAITING_INPUT" ||
                 diligenceJob.status === "RUNNING" ||
                 diligenceJob.status === "QUEUED") && (
-                <motion.div layout className="flex justify-end gap-2">
+                <motion.div layout className="flex flex-wrap justify-end gap-2">
                   {(diligenceJob.status === "FAILED" ||
                     diligenceJob.status === "WAITING_INPUT") && (
                     <button

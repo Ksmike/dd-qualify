@@ -7,7 +7,6 @@ import {
   LuMap,
   LuArrowLeft,
   LuCpu,
-  LuCoins,
   LuClock,
   LuShieldCheck,
   LuUsers,
