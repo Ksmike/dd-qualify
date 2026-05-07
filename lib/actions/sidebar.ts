@@ -5,6 +5,25 @@ import { db } from "@/lib/db";
 import { DiligenceJobStatus } from "@/lib/generated/prisma/client";
 import { ProjectModel } from "@/lib/models/ProjectModel";
 
+export type RecentProject = {
+  id: string;
+  name: string;
+};
+
+export async function getRecentProjects(): Promise<RecentProject[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const projects = await db.project.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+    select: { id: true, name: true },
+  });
+
+  return projects;
+}
+
 export async function getProjectForSidebar(
   projectId: string
 ): Promise<{

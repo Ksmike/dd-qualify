@@ -12,8 +12,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 const mockGetProjectForSidebar = vi.fn();
+const mockGetRecentProjects = vi.fn().mockResolvedValue([]);
 vi.mock("@/lib/actions/sidebar", () => ({
   getProjectForSidebar: (...args: unknown[]) => mockGetProjectForSidebar(...args),
+  getRecentProjects: (...args: unknown[]) => mockGetRecentProjects(...args),
 }));
 
 describe("Sidebar — default nav", () => {

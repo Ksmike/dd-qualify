@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FiChevronLeft } from "react-icons/fi";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { getProjectForSidebar } from "@/lib/actions/sidebar";
+import { getProjectForSidebar, getRecentProjects, type RecentProject } from "@/lib/actions/sidebar";
 
 export const navItems = [
   { label: "Dashboard", href: "/dashboard" },
@@ -44,6 +44,7 @@ export function Sidebar() {
     hasReports: boolean;
     hasEnquiries: boolean;
   } | null>(null);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshSidebarData = useCallback(() => {
@@ -51,6 +52,12 @@ export function Sidebar() {
     getProjectForSidebar(projectId).then((project) => {
       setProjectSidebarData(project);
     });
+  }, [projectId]);
+
+  // Fetch recent projects for the default nav
+  useEffect(() => {
+    if (projectId) return;
+    getRecentProjects().then(setRecentProjects);
   }, [projectId]);
 
   // Fetch on projectId change
@@ -137,7 +144,7 @@ export function Sidebar() {
             highlightSettings={highlightSettings}
           />
         ) : (
-          <DefaultNav pathname={pathname} />
+          <DefaultNav pathname={pathname} recentProjects={recentProjects} />
         )}
       </nav>
       <div className="flex items-center justify-between border-t border-divider pt-3">
@@ -148,17 +155,41 @@ export function Sidebar() {
   );
 }
 
-function DefaultNav({ pathname }: { pathname: string }) {
+function DefaultNav({ pathname, recentProjects }: { pathname: string; recentProjects: RecentProject[] }) {
   return (
     <div className="flex flex-col gap-1">
-      {navItems.map((item) => (
-        <NavLink
-          key={item.href}
-          href={item.href}
-          label={item.label}
-          isActive={pathname === item.href}
-        />
-      ))}
+      <NavLink
+        href="/dashboard"
+        label="Dashboard"
+        isActive={pathname === "/dashboard"}
+      />
+      {recentProjects.length > 0 && (
+        <div className="flex flex-col gap-0.5 pb-1">
+          {recentProjects.map((project) => {
+            const href = `/project/${project.id}`;
+            const isActive = pathname.startsWith(href);
+            return (
+              <Link
+                key={project.id}
+                href={href}
+                className={`ml-3 truncate rounded-md px-3 py-1.5 text-xs transition-colors ${
+                  isActive
+                    ? "bg-content2 font-medium text-foreground"
+                    : "text-foreground/55 hover:bg-content2 hover:text-foreground/80"
+                }`}
+                title={project.name}
+              >
+                {project.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+      <NavLink
+        href="/settings"
+        label="Settings"
+        isActive={pathname === "/settings"}
+      />
     </div>
   );
 }
