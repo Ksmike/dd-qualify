@@ -175,7 +175,7 @@ const listItemTransition = {
   stiffness: 420,
   damping: 34,
   mass: 0.6,
-};
+} as const;
 
 const listItemAnimation = {
   initial: { opacity: 0, y: 10, scale: 0.985 },
