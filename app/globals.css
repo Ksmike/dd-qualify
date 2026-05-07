@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@heroui/styles";
+@plugin "@tailwindcss/typography";
 
 /* ── Tailwind theme tokens ────────────────────────────────────────────────── */
 @theme inline {
@@ -21,6 +22,7 @@
 /* Must sit inside @layer base so HeroUI's .dark rules aren't overridden by
    an unlayered :root block with higher implicit specificity. */
 @layer base {
+
   html,
   body {
     max-width: 100%;
@@ -32,39 +34,39 @@
   .light,
   [data-theme="light"],
   [data-theme="default"] {
-    --background:              oklch(97.6% 0.010 90);
-    --foreground:              oklch(21.1% 0 0);
-    --surface:                 oklch(94.8% 0.007 90);
-    --surface-foreground:      oklch(21.1% 0 0);
-    --surface-secondary:       oklch(92.0% 0.006 90);
+    --background: oklch(97.6% 0.010 90);
+    --foreground: oklch(21.1% 0 0);
+    --surface: oklch(94.8% 0.007 90);
+    --surface-foreground: oklch(21.1% 0 0);
+    --surface-secondary: oklch(92.0% 0.006 90);
     --surface-secondary-foreground: oklch(21.1% 0 0);
-    --surface-tertiary:        oklch(89.5% 0.008 90);
-    --accent:                  oklch(74% 0.120 33);
-    --accent-foreground:       oklch(100% 0 0);
-    --muted:                   oklch(48% 0 0);
-    --border:                  oklch(92% 0 0);
-    --separator:               oklch(90% 0 0);
-    --field-background:        oklch(100% 0 0);
-    --radius:                  0.375rem;
+    --surface-tertiary: oklch(89.5% 0.008 90);
+    --accent: oklch(74% 0.120 33);
+    --accent-foreground: oklch(100% 0 0);
+    --muted: oklch(48% 0 0);
+    --border: oklch(92% 0 0);
+    --separator: oklch(90% 0 0);
+    --field-background: oklch(100% 0 0);
+    --radius: 0.375rem;
   }
 
   /* Dark — warm near-black with coral accent preserved */
   .dark,
   [data-theme="dark"] {
-    --background:              oklch(12% 0.008 90);
-    --foreground:              oklch(95% 0.006 90);
-    --surface:                 oklch(17% 0.008 90);
-    --surface-foreground:      oklch(95% 0.006 90);
-    --surface-secondary:       oklch(22% 0.008 90);
+    --background: oklch(12% 0.008 90);
+    --foreground: oklch(95% 0.006 90);
+    --surface: oklch(17% 0.008 90);
+    --surface-foreground: oklch(95% 0.006 90);
+    --surface-secondary: oklch(22% 0.008 90);
     --surface-secondary-foreground: oklch(95% 0.006 90);
-    --surface-tertiary:        oklch(26% 0.008 90);
-    --accent:                  oklch(74% 0.120 33);
-    --accent-foreground:       oklch(100% 0 0);
-    --muted:                   oklch(60% 0 0);
-    --border:                  oklch(28% 0.004 90);
-    --separator:               oklch(26% 0.004 90);
-    --field-background:        oklch(17% 0.008 90);
-    --radius:                  0.375rem;
+    --surface-tertiary: oklch(26% 0.008 90);
+    --accent: oklch(74% 0.120 33);
+    --accent-foreground: oklch(100% 0 0);
+    --muted: oklch(60% 0 0);
+    --border: oklch(28% 0.004 90);
+    --separator: oklch(26% 0.004 90);
+    --field-background: oklch(17% 0.008 90);
+    --radius: 0.375rem;
   }
 }
 
@@ -72,6 +74,7 @@
   0% {
     transform: translateX(-110%);
   }
+
   100% {
     transform: translateX(430%);
   }

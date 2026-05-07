@@ -615,6 +615,30 @@ export function ProjectDocumentsPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      {documents.length > 0 && (
+        <div className="order-0 flex justify-end">
+          <motion.button
+            type="button"
+            onClick={() => void handleBeDiligent()}
+            disabled={isStartingDiligence || !canStartDiligence}
+            animate={
+              beDiligentShakeNonce > 0
+                ? { x: [0, -7, 7, -6, 6, -3, 3, 0] }
+                : { x: 0 }
+            }
+            transition={{ duration: 0.45, ease: "easeInOut" }}
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60 ${
+              hasAnyApiKeys
+                ? "bg-success/20 text-success hover:opacity-90"
+                : "bg-warning/20 text-warning hover:opacity-90"
+            }`}
+          >
+            <LuCirclePlay aria-hidden="true" className="size-4" />
+            {labels.beDiligentCta}
+          </motion.button>
+        </div>
+      )}
+
       <section className="order-2 space-y-4 rounded-xl border border-divider bg-content1 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-foreground">
           {labels.documentsHeading}
@@ -846,30 +870,6 @@ export function ProjectDocumentsPanel({
             </div>
           </div>
         </section>
-      )}
-
-      {documents.length > 0 && (
-        <div className="order-4 flex justify-end">
-          <motion.button
-            type="button"
-            onClick={() => void handleBeDiligent()}
-            disabled={isStartingDiligence || !canStartDiligence}
-            animate={
-              beDiligentShakeNonce > 0
-                ? { x: [0, -7, 7, -6, 6, -3, 3, 0] }
-                : { x: 0 }
-            }
-            transition={{ duration: 0.45, ease: "easeInOut" }}
-            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60 ${
-              hasAnyApiKeys
-                ? "bg-success/20 text-success hover:opacity-90"
-                : "bg-warning/20 text-warning hover:opacity-90"
-            }`}
-          >
-            <LuCirclePlay aria-hidden="true" className="size-4" />
-            {labels.beDiligentCta}
-          </motion.button>
-        </div>
       )}
 
       <AnimatePresence initial={false}>

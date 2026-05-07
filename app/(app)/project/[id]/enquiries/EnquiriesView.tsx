@@ -7,6 +7,7 @@ import {
   askProjectEnquiry,
   type EnquiryChatMessage,
 } from "@/lib/actions/enquiries";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import type { AppLabels } from "@/labels/types";
 
 type EnquiriesLabels = AppLabels["app"]["enquiries"];
@@ -172,9 +173,13 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
                     {message.role === "user" ? labels.investorLabel : labels.agentLabel}
                   </span>
                 </div>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                  {message.content}
-                </p>
+                {message.role === "assistant" ? (
+                  <MarkdownContent content={message.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                    {message.content}
+                  </p>
+                )}
                 {message.sources && message.sources.length > 0 && (
                   <div className="mt-2 space-y-1 rounded-md border border-divider bg-content2 px-2 py-1.5">
                     <p className="text-[11px] font-medium text-foreground/70">
