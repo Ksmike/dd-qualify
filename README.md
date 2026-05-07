@@ -1,15 +1,45 @@
 # DD Qualify
 
-A Next.js prototype hosted on Vercel with Neon Postgres.
+`DD Qualify` is a document-driven due-diligence prototype for private equity workflows.
+It ingests deal documents, runs a staged analysis pipeline, highlights risks/claims/contradictions, generates structured reports, and supports analyst enquiries against generated evidence.
 
-## Stack
+## Assessment Fit
 
-- **Framework:** Next.js 16 (App Router)
-- **UI:** HeroUI + Tailwind CSS v4
-- **Database:** Neon Postgres (via Vercel Marketplace)
-- **ORM:** Prisma 7 (multi-file schema)
-- **Auth:** Auth.js v5 (email/password, extensible to OAuth)
-- **Hosting:** Vercel
+This project addresses the Stage 2 brief by providing:
+
+- Document ingestion for diligence materials.
+- Cross-document analysis and corroboration.
+- Contradiction and risk surfacing.
+- Structured outputs (insights, report artifacts, enquiries).
+
+The sample NovaBridge files are included in [`DEMO/`](./DEMO).
+
+## Tech Stack
+
+- Framework: Next.js 16 (App Router)
+- UI: HeroUI + Tailwind CSS v4
+- Database: Postgres (Neon-compatible)
+- ORM: Prisma 7 (`prisma-client` generator, multi-file schema)
+- Auth: Auth.js v5 (credentials-based)
+- Workflow Orchestration: `workflow` / `@workflow/next`
+- Storage: Vercel Blob
+- Testing: Vitest + React Testing Library
+
+## Core Product Flow
+
+1. User creates a project.
+2. User uploads source files.
+3. User runs due diligence (`Be Diligent`).
+4. Workflow executes staged extraction, classification, indexing, corroboration, Q1-Q8 analyses, open questions, summary, final report.
+5. Analyst reviews:
+   - project-level insights
+   - generated report artifacts
+   - enquiries chat grounded in report + evidence chunks
+
+## Documentation Index
+
+- Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- Database Structure: [`docs/DATABASE.md`](./docs/DATABASE.md)
 
 ## Getting Started
 
@@ -27,23 +57,26 @@ yarn dev:https
 
 ## Environment Variables
 
-Copy `.env.example` or set these in your Vercel project:
+Configure these in `.env` / `.env.local`:
 
-- `DATABASE_URL` — Pooled Neon Postgres connection string
-- `DIRECT_URL` — Direct Neon connection (for migrations)
-- `AUTH_SECRET` — Random secret for Auth.js sessions
-- `AUTH_URL` — App URL (e.g. `http://localhost:3000`)
+- `DATABASE_URL` - pooled Postgres connection string
+- `DIRECT_URL` - direct Postgres connection string (migrations)
+- `AUTH_SECRET` - Auth.js secret
+- `AUTH_URL` - app URL (for example `http://localhost:3000` or `https://localhost:3000`)
 
-If using `yarn dev:https`, set `AUTH_URL=https://localhost:3000`.
+## Prisma Workflow
 
-## Database
+After changing anything in `prisma/models/*.prisma`:
 
 ```bash
-# Run migrations
-yarn prisma migrate dev
-
-# Generate client after schema changes
 yarn prisma generate
+yarn prisma migrate dev
 ```
 
-Schema files are split by domain in `prisma/models/`.
+## Test Commands
+
+```bash
+yarn test
+yarn test:watch
+yarn test:coverage
+```
