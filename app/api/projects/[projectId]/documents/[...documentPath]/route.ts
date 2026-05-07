@@ -2,6 +2,7 @@ import { del, get } from "@vercel/blob";
 import { auth } from "@/lib/auth";
 import { ProjectDocumentModel } from "@/lib/models/ProjectDocumentModel";
 import { db } from "@/lib/db";
+import { ProjectStatus } from "@/lib/generated/prisma/client";
 import {
   buildProjectBlobPath,
   sanitizeDocumentPathSegments,
@@ -181,7 +182,7 @@ export async function PATCH(
       userId,
     },
     data: {
-      status: "draft",
+      status: ProjectStatus.DRAFT,
     },
   });
 
