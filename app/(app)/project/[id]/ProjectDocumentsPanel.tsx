@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LuBot, LuCirclePlay, LuRefreshCw } from "react-icons/lu";
+import { LuBot, LuBuilding2, LuCirclePlay, LuRefreshCw, LuUser, LuPackage, LuTrendingUp, LuHandshake, LuFactory, LuFileText } from "react-icons/lu";
 import {
   startProjectDueDiligence,
   retryProjectDueDiligence,
@@ -195,6 +195,31 @@ function documentStatusClassName(status: ProjectDocumentProcessingStatus): strin
   if (status === "FAILED") return "bg-danger/15 text-danger";
   if (status === "PROCESSING") return "bg-warning/15 text-warning";
   return "bg-content2 text-foreground/80";
+}
+
+type EntityKindIconMeta = {
+  label: string;
+  Icon: typeof LuBuilding2;
+  className: string;
+};
+
+const ENTITY_KIND_ICONS: Record<string, EntityKindIconMeta> = {
+  company: { label: "Company", Icon: LuBuilding2, className: "bg-primary/15 text-primary" },
+  person: { label: "Person", Icon: LuUser, className: "bg-secondary/15 text-secondary" },
+  product: { label: "Product", Icon: LuPackage, className: "bg-primary/15 text-primary" },
+  market: { label: "Market", Icon: LuTrendingUp, className: "bg-warning/15 text-warning" },
+  investor: { label: "Investor", Icon: LuHandshake, className: "bg-secondary/15 text-secondary" },
+  competitor: { label: "Competitor", Icon: LuFactory, className: "bg-danger/15 text-danger" },
+  financial_metric: { label: "Financial", Icon: LuTrendingUp, className: "bg-success/15 text-success" },
+};
+
+function getEntityKindIcon(kind: string): EntityKindIconMeta {
+  const normalized = kind.trim().toLowerCase();
+  return ENTITY_KIND_ICONS[normalized] ?? {
+    label: kind.charAt(0).toUpperCase() + kind.slice(1),
+    Icon: LuFileText,
+    className: "bg-content2 text-foreground/70",
+  };
 }
 
 function isDiligenceStatusActive(status: DiligenceJobStatus): boolean {
@@ -990,7 +1015,7 @@ export function ProjectDocumentsPanel({
                 </p>
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={`${diligenceJob.id}-${diligenceJob.currentStage ?? "none"}`}
+                    key={`${diligenceJob.id}-${diligenceJob.stageRuns.find((sr) => sr.status === "RUNNING")?.stage ?? diligenceJob.currentStage ?? "none"}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -998,9 +1023,15 @@ export function ProjectDocumentsPanel({
                     className="text-foreground/70"
                   >
                     {labels.diligenceCurrentStageLabel}:{" "}
-                    {diligenceJob.currentStage
-                      ? labels.diligenceStages[diligenceJob.currentStage]
-                      : "-"}
+                    {(() => {
+                      const runningStage = diligenceJob.stageRuns.find(
+                        (sr) => sr.status === "RUNNING"
+                      );
+                      const activeStage = runningStage?.stage ?? diligenceJob.currentStage;
+                      return activeStage
+                        ? labels.diligenceStages[activeStage]
+                        : "-";
+                    })()}
                   </motion.p>
                 </AnimatePresence>
                 <p className="min-w-0 text-foreground/70">
@@ -1055,9 +1086,7 @@ export function ProjectDocumentsPanel({
               {diligenceJob.stageRuns.length > 0 && (
                 <motion.ul layout className="space-y-1">
                   {diligenceJob.stageRuns.map((stageRun) => {
-                    const isCurrentStage =
-                      diligenceJob.currentStage === stageRun.stage &&
-                      stageRun.status !== "COMPLETED";
+                    const isCurrentStage = stageRun.status === "RUNNING";
                     return (
                       <motion.li
                         key={stageRun.stage}
@@ -1128,105 +1157,153 @@ export function ProjectDocumentsPanel({
         </AnimatePresence>
       </motion.section>
 
-      {(projectStatus === "reviewed" || projectStatus === "complete") && (
-        <section className="space-y-4 rounded-xl border border-divider bg-content1 p-4">
-          <h3 className="text-base font-semibold text-foreground">
-            {labels.insightsHeading}
-          </h3>
+      <AnimatePresence>
+        {(projectStatus === "reviewed" || projectStatus === "complete") && (
+          <motion.section
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="space-y-4 rounded-xl border border-divider bg-content1 p-4"
+          >
+            <h3 className="text-base font-semibold text-foreground">
+              {labels.insightsHeading}
+            </h3>
 
-          {!insights ? (
-            <p className="text-sm text-foreground/70">{labels.insightsEmpty}</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">
-                  {labels.insightsRisksHeading}
-                </h4>
-                {insights.risks.length === 0 ? (
-                  <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {insights.risks.map((risk) => (
-                      <li
-                        key={risk.id}
-                        className="rounded-md border border-divider bg-background px-2.5 py-2"
-                      >
-                        <p className="text-xs font-medium text-foreground">{risk.title}</p>
-                        <p className="mt-1 text-xs text-foreground/70">{risk.summary}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+            {!insights ? (
+              <p className="text-sm text-foreground/70">{labels.insightsEmpty}</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="space-y-2"
+                >
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {labels.insightsRisksHeading}
+                  </h4>
+                  {insights.risks.length === 0 ? (
+                    <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {insights.risks.map((risk, i) => (
+                        <motion.li
+                          key={risk.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.25, delay: 0.15 + i * 0.05 }}
+                          className="rounded-md border border-divider bg-background px-2.5 py-2"
+                        >
+                          <p className="text-xs font-medium text-foreground">{risk.title}</p>
+                          <p className="mt-1 text-xs text-foreground/70">{risk.summary}</p>
+                        </motion.li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
 
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">
-                  {labels.insightsClaimsHeading}
-                </h4>
-                {insights.claims.length === 0 ? (
-                  <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {insights.claims.map((claim) => (
-                      <li
-                        key={claim.id}
-                        className="rounded-md border border-divider bg-background px-2.5 py-2 text-xs text-foreground"
-                      >
-                        {claim.claimText}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
+                  className="space-y-2"
+                >
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {labels.insightsClaimsHeading}
+                  </h4>
+                  {insights.claims.length === 0 ? (
+                    <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {insights.claims.map((claim, i) => (
+                        <motion.li
+                          key={claim.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.25, delay: 0.25 + i * 0.05 }}
+                          className="rounded-md border border-divider bg-background px-2.5 py-2 text-xs text-foreground"
+                        >
+                          {claim.claimText}
+                        </motion.li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
 
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">
-                  {labels.insightsEntitiesHeading}
-                </h4>
-                {insights.entities.length === 0 ? (
-                  <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {insights.entities.map((entity) => (
-                      <li
-                        key={entity.id}
-                        className="rounded-md border border-divider bg-background px-2.5 py-2 text-xs text-foreground"
-                      >
-                        {entity.name} ({entity.kind})
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                  className="space-y-2"
+                >
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {labels.insightsEntitiesHeading}
+                  </h4>
+                  {insights.entities.length === 0 ? (
+                    <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {insights.entities.map((entity, i) => {
+                        const kindMeta = getEntityKindIcon(entity.kind);
+                        return (
+                          <motion.li
+                            key={entity.id}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.25, delay: 0.35 + i * 0.05 }}
+                            className="flex items-center justify-between gap-2 rounded-md border border-divider bg-background px-2.5 py-2"
+                          >
+                            <span className="text-xs font-medium text-foreground truncate">
+                              {entity.name}
+                            </span>
+                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${kindMeta.className}`}>
+                              <kindMeta.Icon aria-hidden="true" className="size-3" />
+                              {kindMeta.label}
+                            </span>
+                          </motion.li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </motion.div>
 
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">
-                  {labels.insightsContradictionsHeading}
-                </h4>
-                {insights.contradictions.length === 0 ? (
-                  <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {insights.contradictions.map((contradiction) => (
-                      <li
-                        key={contradiction.id}
-                        className="rounded-md border border-divider bg-background px-2.5 py-2"
-                      >
-                        <p className="text-xs text-foreground">
-                          {contradiction.statementA}
-                        </p>
-                        <p className="mt-1 text-xs text-danger">
-                          {contradiction.statementB}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                  className="space-y-2"
+                >
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {labels.insightsContradictionsHeading}
+                  </h4>
+                  {insights.contradictions.length === 0 ? (
+                    <p className="text-xs text-foreground/60">{labels.insightsEmpty}</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {insights.contradictions.map((contradiction, i) => (
+                        <motion.li
+                          key={contradiction.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.25, delay: 0.45 + i * 0.05 }}
+                          className="rounded-md border border-divider bg-background px-2.5 py-2"
+                        >
+                          <p className="text-xs text-foreground">
+                            {contradiction.statementA}
+                          </p>
+                          <p className="mt-1 text-xs text-danger">
+                            {contradiction.statementB}
+                          </p>
+                        </motion.li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
               </div>
-            </div>
-          )}
-        </section>
-      )}
+            )}
+          </motion.section>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

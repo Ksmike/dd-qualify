@@ -54,9 +54,24 @@ No work has been done to make the product discoverable by AI agents, LLMs, or an
 
 ---
 
+## Email
+
+No email infrastructure exists. The app has no way to communicate with users outside the browser session.
+
+- **Transactional email provider** — No integration with a service like Resend, SendGrid, Postmark, or AWS SES. Need to choose a provider and set up domain authentication (SPF, DKIM, DMARC).
+- **Welcome email** — No confirmation or onboarding email after registration.
+- **Password reset** — No "forgot password" flow. Users who lose their password have no recovery path.
+- **Diligence completion notifications** — Jobs can take minutes to complete. No email is sent when a diligence run finishes, fails, or requires input.
+- **Report delivery** — No option to email a generated report to stakeholders or co-investors.
+- **Collaboration invites** — No way to invite team members to a project via email.
+- **Digest / summary emails** — No periodic updates on project activity or new findings.
+- **Email templates** — No templating system (React Email, MJML, etc.) for consistent branded emails.
+- **Unsubscribe / preferences** — No email preference centre. Required for CAN-SPAM / GDPR compliance once emails are sent.
+
+---
+
 ## Other Notable Gaps
 
-- **Email notifications** — No transactional email (welcome, password reset, diligence complete).
 - **Audit logging** — No record of who did what and when. Important for compliance in financial services.
 - **Rate limiting on all endpoints** — Only auth routes have rate limiting. Document upload and diligence triggers are unprotected.
 - **File type support** — `.pages`, `.key`, `.keynote` are accepted on upload but fall through to metadata-only extraction (no text extractor implemented).
