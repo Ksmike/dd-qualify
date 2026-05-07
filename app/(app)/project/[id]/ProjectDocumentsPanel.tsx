@@ -341,6 +341,19 @@ export function ProjectDocumentsPanel({
     };
   }, [loadDocuments]);
 
+  // Poll for diligence job status updates while the job is active
+  useEffect(() => {
+    if (!isDiligenceInProgress) return;
+
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 5_000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isDiligenceInProgress, router]);
+
   async function uploadFiles(files: File[]) {
     if (files.length === 0) {
       return;
@@ -546,6 +559,7 @@ export function ProjectDocumentsPanel({
       toast.success(labels.diligenceJobCreatedToast);
       toast.success(labels.diligenceStartToast);
       window.dispatchEvent(new CustomEvent("ddq:sidebar-refresh"));
+      router.refresh();
     } finally {
       setIsStartingDiligence(false);
     }
@@ -564,6 +578,7 @@ export function ProjectDocumentsPanel({
         return;
       }
       toast.success(labels.diligenceRetryToast);
+      router.refresh();
     } finally {
       setIsRetryingDiligence(false);
     }
@@ -585,6 +600,7 @@ export function ProjectDocumentsPanel({
         return;
       }
       toast.success(labels.cancelDiligenceToast);
+      router.refresh();
     } finally {
       setIsCancellingDiligence(false);
     }
