@@ -21,6 +21,12 @@
 /* Must sit inside @layer base so HeroUI's .dark rules aren't overridden by
    an unlayered :root block with higher implicit specificity. */
 @layer base {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
   /* Light — Mythras warm palette */
   :root,
   .light,

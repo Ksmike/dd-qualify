@@ -55,7 +55,7 @@ export default async function ProjectInspectPage({
   }).format(project.createdAt);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-3xl space-y-6 overflow-x-hidden">
       <ProjectHeader
         projectName={project.name}
         projectId={project.id}

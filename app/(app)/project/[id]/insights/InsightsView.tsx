@@ -170,7 +170,7 @@ function ConfidenceBadge({ value }: { value: number | null }) {
 export function InsightsView({ projectName, labels, data }: Props) {
   if (!data) {
     return (
-      <div className="space-y-4">
+      <div className="min-w-0 w-full space-y-4">
         <h1 className="text-2xl font-semibold text-foreground">
           {labels.heading}
         </h1>
@@ -182,13 +182,13 @@ export function InsightsView({ projectName, labels, data }: Props) {
   const { findings, claims, entities, contradictions } = data;
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 w-full space-y-8 overflow-x-hidden">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground">
           {labels.heading}
         </h1>
-        <p className="mt-1 text-sm text-foreground/60">
+        <p className="mt-1 break-words text-sm text-foreground/60">
           {projectName} — {labels.description}
         </p>
       </div>
@@ -221,10 +221,10 @@ export function InsightsView({ projectName, labels, data }: Props) {
                     </div>
                     <ConfidenceBadge value={finding.confidence} />
                   </div>
-                  <h3 className="mt-2 text-sm font-semibold text-foreground">
+                  <h3 className="mt-2 break-words text-sm font-semibold text-foreground">
                     {finding.title}
                   </h3>
-                  <p className="mt-1 text-sm text-foreground/70">
+                  <p className="mt-1 break-words text-sm text-foreground/70">
                     {finding.summary}
                   </p>
                   <FindingDetails metadata={finding.metadata} />
@@ -257,7 +257,7 @@ export function InsightsView({ projectName, labels, data }: Props) {
                 >
                   <Icon className={`mt-0.5 size-4 shrink-0 ${color}`} aria-hidden="true" />
                   <div className="flex-1">
-                    <p className="text-sm text-foreground">{claim.claimText}</p>
+                    <p className="break-words text-sm text-foreground">{claim.claimText}</p>
                     {evidence && (
                       <p className="mt-1 text-xs text-foreground/60 italic">
                         {evidence}
@@ -344,7 +344,7 @@ export function InsightsView({ projectName, labels, data }: Props) {
                   </div>
                   <div className="mt-2 space-y-2">
                     <div className="rounded-md bg-content2 p-2">
-                      <p className="text-sm text-foreground/80">
+                      <p className="break-words text-sm text-foreground/80">
                         &ldquo;{c.statementA}&rdquo;
                       </p>
                     </div>
@@ -352,7 +352,7 @@ export function InsightsView({ projectName, labels, data }: Props) {
                       <LuGitCompare className="size-4 text-danger" aria-hidden="true" />
                     </div>
                     <div className="rounded-md bg-content2 p-2">
-                      <p className="text-sm text-foreground/80">
+                      <p className="break-words text-sm text-foreground/80">
                         &ldquo;{c.statementB}&rdquo;
                       </p>
                     </div>

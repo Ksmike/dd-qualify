@@ -113,7 +113,7 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
   }, [thread.length, isPending]);
 
   return (
-    <div className="mx-auto flex h-full min-h-[70svh] w-full min-w-0 max-w-5xl flex-col overflow-x-hidden">
+    <div className="mx-auto flex h-full min-h-[70svh] w-full min-w-0 max-w-5xl flex-col overflow-x-clip">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-divider bg-content1">
         <div className="shrink-0 space-y-3 border-b border-divider px-4 py-4 sm:px-5">
           <div className="space-y-1">
@@ -130,14 +130,14 @@ export function EnquiriesView({ projectId, projectName, labels }: Props) {
               <LuSparkles aria-hidden="true" className="size-4 text-primary" />
               <p>{labels.sampleQuestionsHeading}</p>
             </div>
-            <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+            <div className="flex w-full min-w-0 max-w-full gap-2 overflow-x-auto pb-1">
               {sampleQuestions.map((sample) => (
                 <button
                   key={sample}
                   type="button"
                   onClick={() => submitQuestion(sample)}
                   disabled={isPending}
-                  className="max-w-full rounded-md border border-divider bg-background px-3 py-1.5 text-left text-xs text-foreground/80 transition-colors hover:bg-content2 disabled:opacity-60 sm:whitespace-nowrap"
+                  className="max-w-full shrink-0 rounded-md border border-divider bg-background px-3 py-1.5 text-left text-xs text-foreground/80 transition-colors hover:bg-content2 disabled:opacity-60 sm:whitespace-nowrap"
                 >
                   {sample}
                 </button>

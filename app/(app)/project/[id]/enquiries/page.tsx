@@ -41,7 +41,7 @@ export default async function EnquiriesPage({ params }: EnquiriesPageProps) {
 
   if (!hasFinishedReport) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-3">
+      <div className="mx-auto w-full min-w-0 max-w-3xl space-y-3 overflow-x-hidden">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {labels.app.enquiries.heading}
         </h1>

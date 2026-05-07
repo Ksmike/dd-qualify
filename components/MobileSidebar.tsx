@@ -53,29 +53,27 @@ export function MobileSidebar() {
   useEffect(() => {
     if (!isOpen) return;
 
-    // Save current scroll position and lock the page in place.
-    // Using position:fixed on body is the most reliable way to prevent
-    // background scroll on iOS Safari.
+    // Save current vertical scroll position and lock the page in place.
+    // Keep horizontal origin at 0 to avoid iOS Safari viewport drift.
     const scrollY = window.scrollY;
-    const scrollX = window.scrollX;
     const { body, documentElement } = document;
 
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
-    body.style.left = `-${scrollX}px`;
-    body.style.right = "0";
+    body.style.width = "100%";
     body.style.overflow = "hidden";
     documentElement.style.overflow = "hidden";
+    documentElement.style.overflowX = "hidden";
 
     return () => {
       body.style.position = "";
       body.style.top = "";
-      body.style.left = "";
-      body.style.right = "";
+      body.style.width = "";
       body.style.overflow = "";
       documentElement.style.overflow = "";
+      documentElement.style.overflowX = "";
       // Restore scroll position after unlocking
-      window.scrollTo(scrollX, scrollY);
+      window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
 
