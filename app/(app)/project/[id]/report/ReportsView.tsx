@@ -38,6 +38,11 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatStage(stage: string | null): string {
+  if (!stage) return "—";
+  return stage.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function JobStatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     COMPLETED: "bg-success/10 text-success",
@@ -79,8 +84,50 @@ export function ReportsView({ projectId, projectName, labels, reports }: Props) 
         </p>
       </div>
 
-      {/* Reports table */}
-      <div className="overflow-x-auto rounded-xl border border-divider bg-content1">
+      {/* Mobile: card layout */}
+      <div className="space-y-3 md:hidden">
+        {reports.map((report) => {
+          const Icon = typeIcons[report.type] ?? LuFileText;
+          const typeName =
+            labels.artifactTypes[
+              report.type as keyof typeof labels.artifactTypes
+            ] ?? report.type;
+
+          return (
+            <Link
+              key={report.id}
+              href={`/project/${projectId}/report/${report.id}`}
+              className="block rounded-xl border border-divider bg-content1 p-4 transition-colors hover:bg-content2/50"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Icon className="size-4 text-primary" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {typeName}
+                    </p>
+                    <p className="text-xs text-foreground/60">
+                      {formatStage(report.stage)}
+                    </p>
+                  </div>
+                </div>
+                <JobStatusBadge status={report.jobStatus} />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/60">
+                <span>{report.mimeType ?? "Unknown format"}</span>
+                <span>{formatBytes(report.sizeBytes)}</span>
+                <span>{new Date(report.createdAt).toLocaleDateString()}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table layout */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-divider bg-content1">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-divider text-left">
@@ -132,9 +179,7 @@ export function ReportsView({ projectId, projectName, labels, reports }: Props) 
                     </div>
                   </td>
                   <td className="px-4 py-3 text-foreground/70">
-                    {report.stage
-                      ? report.stage.replace(/_/g, " ").toLowerCase()
-                      : "—"}
+                    {formatStage(report.stage)}
                   </td>
                   <td className="px-4 py-3 text-foreground/70">
                     {report.mimeType ?? "—"}

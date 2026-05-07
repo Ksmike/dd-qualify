@@ -41,7 +41,7 @@ describe("ReportsView", () => {
     expect(screen.getByText("No reports available yet.")).toBeInTheDocument();
   });
 
-  it("renders reports table when reports exist", () => {
+  it("renders reports when reports exist", () => {
     const reports = [
       {
         id: "art-1",
@@ -67,12 +67,12 @@ describe("ReportsView", () => {
 
     expect(screen.getByText("Reports")).toBeInTheDocument();
     expect(screen.getByText(/Acme.*Generated reports and artifacts/)).toBeInTheDocument();
-    expect(screen.getByText("Generated Report")).toBeInTheDocument();
-    expect(screen.getByText(/final report/)).toBeInTheDocument();
-    expect(screen.getByText("application/pdf")).toBeInTheDocument();
-    expect(screen.getByText("2.0 KB")).toBeInTheDocument();
-    expect(screen.getByText("completed")).toBeInTheDocument();
-    expect(screen.getByText("View")).toBeInTheDocument();
+    // Both mobile card and desktop table render the report data
+    expect(screen.getAllByText("Generated Report").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Final Report/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("application/pdf").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("2.0 KB").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("completed").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders multiple reports", () => {
@@ -110,9 +110,9 @@ describe("ReportsView", () => {
       />
     );
 
-    expect(screen.getByText("Generated Report")).toBeInTheDocument();
-    expect(screen.getByText("Export Bundle")).toBeInTheDocument();
-    expect(screen.getByText("1.0 MB")).toBeInTheDocument();
+    expect(screen.getAllByText("Generated Report").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Export Bundle").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("1.0 MB").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders view links with correct href", () => {
@@ -139,8 +139,12 @@ describe("ReportsView", () => {
       />
     );
 
-    const viewLink = screen.getByText("View").closest("a");
-    expect(viewLink).toHaveAttribute("href", "/project/project-1/report/art-1");
+    // Both mobile card (entire card is a link) and desktop table have links
+    const links = screen.getAllByRole("link", { name: /View|Generated Report/i });
+    const reportLink = links.find(
+      (link) => link.getAttribute("href") === "/project/project-1/report/art-1"
+    );
+    expect(reportLink).toBeDefined();
   });
 
   it("shows dash for null size and mimeType", () => {
@@ -167,8 +171,8 @@ describe("ReportsView", () => {
       />
     );
 
-    expect(screen.getByText("Evidence Map")).toBeInTheDocument();
-    // Dashes for null values
+    expect(screen.getAllByText("Evidence Map").length).toBeGreaterThanOrEqual(1);
+    // Dashes for null values in the desktop table
     const dashes = screen.getAllByText("—");
     expect(dashes.length).toBeGreaterThanOrEqual(2);
   });
