@@ -3,18 +3,64 @@
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { signIn, signOut } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+
+const PASSWORD_HASH_COST = 14;
+const PASSWORD_MIN_LENGTH = 8;
+const REGISTER_RATE_LIMIT_MAX = 5;
+const LOGIN_RATE_LIMIT_MAX = 12;
+const AUTH_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
+
+const PASSWORD_REQUIREMENTS_MESSAGE =
+  "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.";
+
+function normalizeEmail(input: string): string {
+  return input.trim().toLowerCase();
+}
+
+function validatePasswordStrength(password: string): { valid: boolean; message: string } {
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return { valid: false, message: PASSWORD_REQUIREMENTS_MESSAGE };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: PASSWORD_REQUIREMENTS_MESSAGE };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: PASSWORD_REQUIREMENTS_MESSAGE };
+  }
+  if (!/\d/.test(password)) {
+    return { valid: false, message: PASSWORD_REQUIREMENTS_MESSAGE };
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { valid: false, message: PASSWORD_REQUIREMENTS_MESSAGE };
+  }
+  return { valid: true, message: "" };
+}
 
 export async function register(formData: FormData) {
-  const email = formData.get("email") as string;
+  const email = normalizeEmail((formData.get("email") as string) ?? "");
   const password = formData.get("password") as string;
-  const name = formData.get("name") as string | null;
+  const name = ((formData.get("name") as string | null) ?? "").trim() || null;
 
   if (!email || !password) {
     return { error: "Email and password are required" };
   }
 
-  if (password.length < 8) {
-    return { error: "Password must be at least 8 characters" };
+  const registerRateLimit = checkRateLimit({
+    namespace: "auth:register",
+    identifier: email,
+    maxRequests: REGISTER_RATE_LIMIT_MAX,
+    windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  });
+  if (!registerRateLimit.allowed) {
+    return {
+      error: `Too many registration attempts. Try again in ${registerRateLimit.retryAfterSeconds} seconds.`,
+    };
+  }
+
+  const passwordValidation = validatePasswordStrength(password);
+  if (!passwordValidation.valid) {
+    return { error: passwordValidation.message };
   }
 
   const existingUser = await db.user.findUnique({
@@ -25,12 +71,12 @@ export async function register(formData: FormData) {
     return { error: "An account with this email already exists" };
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  const hashedPassword = await bcrypt.hash(password, PASSWORD_HASH_COST);
 
   await db.user.create({
     data: {
       email,
-      name: name || null,
+      name,
       password: hashedPassword,
       locale: "en",
     },
@@ -45,11 +91,23 @@ export async function register(formData: FormData) {
 }
 
 export async function login(formData: FormData) {
-  const email = formData.get("email") as string;
+  const email = normalizeEmail((formData.get("email") as string) ?? "");
   const password = formData.get("password") as string;
 
   if (!email || !password) {
     return { error: "Email and password are required" };
+  }
+
+  const loginRateLimit = checkRateLimit({
+    namespace: "auth:login",
+    identifier: email,
+    maxRequests: LOGIN_RATE_LIMIT_MAX,
+    windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  });
+  if (!loginRateLimit.allowed) {
+    return {
+      error: `Too many login attempts. Try again in ${loginRateLimit.retryAfterSeconds} seconds.`,
+    };
   }
 
   try {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRateLimitBucketsForTests } from "@/lib/security/rate-limit";
 
 const authMock = vi.fn();
 const putMock = vi.fn();
@@ -27,6 +28,7 @@ vi.mock("@/lib/db", () => ({
 describe("projects documents API route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRateLimitBucketsForTests();
     projectDocumentFindManyMock.mockResolvedValue([]);
     projectDocumentUpsertMock.mockResolvedValue({ id: "doc-1" });
   });
@@ -125,6 +127,61 @@ describe("projects documents API route", () => {
 
     expect(response.status).toBe(400);
     expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects files above the maximum upload size", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    const route = await import("@/app/api/projects/[projectId]/documents/route");
+
+    const tooLarge = new File(
+      [new Uint8Array(26 * 1024 * 1024)],
+      "large-report.pdf",
+      { type: "application/pdf" }
+    );
+    const formData = new FormData();
+    formData.set("file", tooLarge);
+
+    const response = await route.POST(
+      {
+        formData: async () => formData,
+      } as unknown as Request,
+      { params: Promise.resolve({ projectId: "project-1" }) }
+    );
+
+    expect(response.status).toBe(413);
+    expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits repeated uploads", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    putMock.mockResolvedValue({
+      pathname: "user-1/project-1/report.pdf",
+      url: "https://blob.local/private-url",
+      downloadUrl: "https://blob.local/private-url?download=1",
+    });
+
+    const route = await import("@/app/api/projects/[projectId]/documents/route");
+    const formData = new FormData();
+    formData.set("file", new File(["file body"], "report.pdf", { type: "application/pdf" }));
+
+    const postUpload = () =>
+      route.POST(
+        { formData: async () => formData } as unknown as Request,
+        { params: Promise.resolve({ projectId: "project-1" }) }
+      );
+    const postUploadMany = async (times: number): Promise<void> => {
+      if (times <= 0) {
+        return;
+      }
+      await postUpload();
+      await postUploadMany(times - 1);
+    };
+    await postUploadMany(25);
+
+    const throttledResponse = await postUpload();
+
+    expect(throttledResponse.status).toBe(429);
+    expect(throttledResponse.headers.get("Retry-After")).not.toBeNull();
   });
 
   it("returns 401 when unauthenticated", async () => {

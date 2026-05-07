@@ -183,6 +183,37 @@ yarn prisma migrate status
 
 ---
 
+# Shared Utilities — `lib/utils/`
+
+## Before Writing Helper Functions
+
+**Always check `lib/utils/` first.** If a utility already exists there, import it — do not redefine it locally. Common patterns like type coercion, formatting, and data manipulation belong in shared utilities, not scattered as one-off `function` declarations at the bottom of files.
+
+## Coercion Utilities — `lib/utils/coerce.ts`
+
+For safely narrowing `unknown` values (e.g., parsed JSON from LLM responses, API payloads, metadata blobs), use the shared coercion helpers:
+
+```ts
+import { asArray, asString, asNumber, asNullableString, asStringArray, asRecord } from "@/lib/utils/coerce";
+```
+
+| Function                     | Purpose                            |
+| ---------------------------- | ---------------------------------- |
+| `asArray<T>(value)`          | Returns the value as `T[]` or `[]` |
+| `asStringArray(value)`       | Filters to only string entries     |
+| `asNullableString(value)`    | Non-empty string or `null`         |
+| `asString(value, fallback?)` | String or fallback (default `""`)  |
+| `asNumber(value)`            | Finite number or `null`            |
+| `asRecord(value)`            | Non-null object or `{}`            |
+
+### Rules
+
+- **Never define local `asArray`, `asString`, `asNumber`, etc.** — import from `@/lib/utils/coerce`.
+- If you need a new coercion helper, add it to `lib/utils/coerce.ts` so the whole codebase benefits.
+- `lib/diligence/stage-helpers.ts` re-exports these for backward compatibility — new code should import directly from `@/lib/utils/coerce`.
+
+---
+
 # Testing
 
 ## Overview

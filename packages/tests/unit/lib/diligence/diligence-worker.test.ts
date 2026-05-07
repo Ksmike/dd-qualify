@@ -21,6 +21,7 @@ const mockDb = {
     findMany: vi.fn().mockResolvedValue([]),
     createMany: vi.fn(),
     deleteMany: vi.fn(),
+    upsert: vi.fn(),
   },
   diligenceEntity: {
     deleteMany: vi.fn(),
@@ -215,7 +216,7 @@ describe("DiligenceWorker — lifecycle", () => {
     expect(result.status).toBe("completed");
   });
 
-  it("marks the job FAILED when a stage throws", async () => {
+  it("keeps the job RUNNING when a stage throws a transient error", async () => {
     mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
     (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
       "ENTITY_EXTRACTION"
@@ -226,6 +227,36 @@ describe("DiligenceWorker — lifecycle", () => {
     await expect(
       worker.runNextStage({ jobId: "job-1", userId: "user-1" })
     ).rejects.toThrow("LLM exploded");
+
+    const updateCalls = mockDb.diligenceJob.update.mock.calls;
+    const failedCall = updateCalls.find((args) => {
+      const data = (args[0] as { data: { status?: string } }).data;
+      return data.status === "FAILED";
+    });
+    expect(failedCall).toBeUndefined();
+
+    const stageRunUpdates = mockDb.diligenceStageRun.update.mock.calls;
+    const stageFailed = stageRunUpdates.find((args) => {
+      const data = (args[0] as { data: { status?: string } }).data;
+      return data.status === "FAILED";
+    });
+    expect(stageFailed).toBeDefined();
+  });
+
+  it("marks the job FAILED when a stage throws DiligenceFatalError", async () => {
+    const { DiligenceFatalError } = await import("@/lib/diligence/errors");
+    mockDb.diligenceJob.findFirst.mockResolvedValue(baseJob);
+    (getNextStage as unknown as { mockReturnValue: (v: string) => void }).mockReturnValue(
+      "ENTITY_EXTRACTION"
+    );
+    mockInvokeStructured.mockRejectedValue(
+      new DiligenceFatalError("Selected API key is missing or disabled.")
+    );
+
+    const worker = new DiligenceWorker();
+    await expect(
+      worker.runNextStage({ jobId: "job-1", userId: "user-1" })
+    ).rejects.toThrow("Selected API key is missing or disabled.");
 
     const updateCalls = mockDb.diligenceJob.update.mock.calls;
     const failedCall = updateCalls.find((args) => {

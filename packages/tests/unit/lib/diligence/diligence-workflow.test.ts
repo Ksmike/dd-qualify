@@ -110,9 +110,10 @@ describe("diligenceWorkflow", () => {
     expect(mockRunNextStage).toHaveBeenCalledTimes(3);
   });
 
-  it("throws FatalError for known fatal messages", async () => {
+  it("throws FatalError when worker throws DiligenceFatalError", async () => {
+    const { DiligenceFatalError } = await import("@/lib/diligence/errors");
     mockRunNextStage.mockRejectedValueOnce(
-      new Error("Diligence job not found.")
+      new DiligenceFatalError("Diligence job not found.")
     );
 
     await expect(
@@ -121,8 +122,9 @@ describe("diligenceWorkflow", () => {
   });
 
   it("throws FatalError for missing API key", async () => {
+    const { DiligenceFatalError } = await import("@/lib/diligence/errors");
     mockRunNextStage.mockRejectedValueOnce(
-      new Error("Selected API key is missing or disabled.")
+      new DiligenceFatalError("Selected API key is missing or disabled.")
     );
 
     await expect(

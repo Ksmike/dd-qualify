@@ -1,6 +1,7 @@
 import { list, put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
 import { ProjectDocumentModel } from "@/lib/models/ProjectDocumentModel";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import {
   buildProjectBlobPath,
   buildProjectBlobPrefix,
@@ -14,6 +15,9 @@ export const dynamic = "force-dynamic";
 const INVALID_PROJECT_ID_ERROR = "Invalid project ID.";
 const INVALID_DOCUMENT_ERROR =
   "Unsupported document format. Allowed: .txt, .docx, .pages, .pdf, .ppt, .pptx, .key, .keynote.";
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
+const UPLOAD_RATE_LIMIT_MAX = 25;
+const UPLOAD_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1_000;
 
 function getUserIdFromSession(session: {
   user?: { id?: string | null } | null;
@@ -47,6 +51,24 @@ export async function POST(
     return Response.json({ error: INVALID_PROJECT_ID_ERROR }, { status: 400 });
   }
 
+  const uploadRateLimit = checkRateLimit({
+    namespace: "upload:project-documents",
+    identifier: `${userId}:${sanitizedProjectId}`,
+    maxRequests: UPLOAD_RATE_LIMIT_MAX,
+    windowMs: UPLOAD_RATE_LIMIT_WINDOW_MS,
+  });
+  if (!uploadRateLimit.allowed) {
+    return Response.json(
+      { error: "Too many upload requests. Please try again shortly." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(uploadRateLimit.retryAfterSeconds),
+        },
+      }
+    );
+  }
+
   let file: File | null = null;
   try {
     const formData = await request.formData();
@@ -60,6 +82,12 @@ export async function POST(
 
   if (!file || file.size === 0) {
     return Response.json({ error: "Missing file upload." }, { status: 400 });
+  }
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+    return Response.json(
+      { error: "File is too large. Maximum upload size is 25 MB." },
+      { status: 413 }
+    );
   }
 
   const sanitizedFilename = sanitizeDocumentFilename(file.name);

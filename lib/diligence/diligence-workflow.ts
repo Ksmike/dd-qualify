@@ -1,5 +1,6 @@
 import { FatalError, getWorkflowMetadata } from "workflow";
 import type { DiligenceStageName } from "@/lib/generated/prisma/client";
+import { DiligenceFatalError } from "@/lib/diligence/errors";
 
 export type DiligenceWorkflowInput = {
   jobId: string;
@@ -7,11 +8,11 @@ export type DiligenceWorkflowInput = {
   priority: number;
 };
 
+// Schema-enum drift (e.g., a renamed DiligenceStageName) bubbles up as a
+// Prisma error string and must halt the workflow — there is no recovery
+// without a code change. Other transient errors fall through to the
+// workflow's retry machinery.
 const FATAL_MESSAGE_PATTERNS = [
-  "Diligence job not found.",
-  "Invalid project storage prefix.",
-  "Missing user API key reference",
-  "Selected API key is missing or disabled.",
   "invalid input value for enum \"DiligenceStageName\"",
 ];
 
@@ -27,6 +28,9 @@ async function runStage(input: {
   try {
     return await worker.runNextStage(input);
   } catch (error) {
+    if (error instanceof DiligenceFatalError) {
+      throw new FatalError(error.message);
+    }
     const message =
       error instanceof Error ? error.message : "Stage execution failed.";
     if (FATAL_MESSAGE_PATTERNS.some((pattern) => message.includes(pattern))) {

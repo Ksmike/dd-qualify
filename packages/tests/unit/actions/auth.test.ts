@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockDb } from "../../mocks/db";
+import { resetRateLimitBucketsForTests } from "@/lib/security/rate-limit";
 
 // Mock bcryptjs
 vi.mock("bcryptjs", () => ({
@@ -31,6 +32,7 @@ function createFormData(data: Record<string, string>): FormData {
 describe("register", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRateLimitBucketsForTests();
   });
 
   it("returns error when email is missing", async () => {
@@ -52,7 +54,20 @@ describe("register", () => {
     });
     const result = await register(formData);
     expect(result).toEqual({
-      error: "Password must be at least 8 characters",
+      error:
+        "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.",
+    });
+  });
+
+  it("returns error when password misses complexity requirements", async () => {
+    const formData = createFormData({
+      email: "test@example.com",
+      password: "alllowercase123",
+    });
+    const result = await register(formData);
+    expect(result).toEqual({
+      error:
+        "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.",
     });
   });
 
@@ -61,12 +76,30 @@ describe("register", () => {
 
     const formData = createFormData({
       email: "test@example.com",
-      password: "password123",
+      password: "Password123!",
     });
     const result = await register(formData);
     expect(result).toEqual({
       error: "An account with this email already exists",
     });
+  });
+
+  it("rate-limits repeated registration attempts", async () => {
+    mockDb.user.findUnique.mockResolvedValue({ id: "1", email: "test@example.com" });
+
+    const formData = createFormData({
+      email: "test@example.com",
+      password: "Password123!",
+    });
+
+    await register(formData);
+    await register(formData);
+    await register(formData);
+    await register(formData);
+    await register(formData);
+
+    const throttled = await register(formData);
+    expect(throttled?.error).toContain("Too many registration attempts");
   });
 
   it("creates user and signs in on success", async () => {
@@ -79,7 +112,7 @@ describe("register", () => {
 
     const formData = createFormData({
       email: "test@example.com",
-      password: "password123",
+      password: "Password123!",
       name: "Test User",
     });
 
@@ -93,10 +126,14 @@ describe("register", () => {
         locale: "en",
       },
     });
+    expect((await import("bcryptjs")).default.hash).toHaveBeenCalledWith(
+      "Password123!",
+      14
+    );
 
     expect(mockSignIn).toHaveBeenCalledWith("credentials", {
       email: "test@example.com",
-      password: "password123",
+      password: "Password123!",
       redirectTo: "/dashboard",
     });
   });
@@ -111,7 +148,7 @@ describe("register", () => {
 
     const formData = createFormData({
       email: "test@example.com",
-      password: "password123",
+      password: "Password123!",
     });
 
     await register(formData);
@@ -130,6 +167,7 @@ describe("register", () => {
 describe("login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRateLimitBucketsForTests();
   });
 
   it("returns error when email is missing", async () => {
@@ -185,6 +223,30 @@ describe("login", () => {
     });
 
     await expect(login(formData)).rejects.toThrow("NEXT_REDIRECT");
+  });
+
+  it("rate-limits repeated login attempts", async () => {
+    mockSignIn.mockRejectedValue(new Error("CredentialsSignin"));
+    const formData = createFormData({
+      email: "test@example.com",
+      password: "password123",
+    });
+
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+    await login(formData);
+
+    const throttled = await login(formData);
+    expect(throttled?.error).toContain("Too many login attempts");
   });
 });
 

@@ -130,6 +130,39 @@ describe("DiligenceLLMService", () => {
         })
       ).rejects.toThrow("Fallback failed");
     });
+
+    it("throws LlmOutputParseError when JSON is malformed", async () => {
+      const { LlmOutputParseError } = await import("@/lib/diligence/errors");
+      mockInvoke.mockResolvedValueOnce({ content: "not json at all" });
+
+      await expect(
+        service.invokeStructured<unknown>(baseInput)
+      ).rejects.toBeInstanceOf(LlmOutputParseError);
+    });
+
+    it("falls back to next provider when zod schema validation fails", async () => {
+      const { z } = await import("zod");
+      const strictSchema = z.object({ summary: z.string(), count: z.number() });
+
+      mockInvoke
+        .mockResolvedValueOnce({ content: '{"summary": "hi"}' }) // missing count
+        .mockResolvedValueOnce({
+          content: '{"summary": "ok", "count": 7}',
+          usage_metadata: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        });
+
+      const result = await service.invokeStructured({
+        ...baseInput,
+        zodSchema: strictSchema,
+        fallbacks: [
+          { provider: "ANTHROPIC" as const, model: "claude-3", apiKey: "sk-ant" },
+        ],
+      });
+
+      expect(result.provider).toBe("ANTHROPIC");
+      expect(result.parsed).toEqual({ summary: "ok", count: 7 });
+      expect(mockInvoke).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("embedText", () => {

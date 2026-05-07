@@ -6,14 +6,20 @@ import {
   ModelProviderRegistry,
   type UsageMetadata,
 } from "@/lib/diligence/model-provider";
+import { LlmOutputParseError } from "@/lib/diligence/errors";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { OpenAIEmbeddings } from "@langchain/openai";
+import type { ZodType } from "zod";
 
-export type DiligencePromptInput = {
+export type DiligencePromptInput<T = Record<string, unknown>> = {
   stage: DiligenceStageName;
   systemInstruction: string;
   userPrompt: string;
   outputSchema: string;
+  // Optional Zod schema validated against the parsed JSON. Validation
+  // failures throw LlmOutputParseError, which the fallback loop treats
+  // like any other transient failure (try the next provider).
+  zodSchema?: ZodType<T>;
   primary: {
     provider: ApiKeyProvider;
     model: string;
@@ -38,7 +44,7 @@ export class DiligenceLLMService {
   private readonly providers = new ModelProviderRegistry();
 
   async invokeStructured<T>(
-    input: DiligencePromptInput
+    input: DiligencePromptInput<T>
   ): Promise<DiligencePromptOutput<T>> {
     const candidateConfigs = [input.primary, ...input.fallbacks];
 
@@ -69,7 +75,7 @@ export class DiligenceLLMService {
         });
         const message = await model.invoke(prompt);
         const rawText = contentToString(message.content);
-        const parsed = parseJsonObject<T>(rawText);
+        const parsed = parseAndValidate<T>(rawText, input.zodSchema);
 
         return {
           provider: candidate.provider,
@@ -143,7 +149,10 @@ function contentToString(content: unknown): string {
   return String(content ?? "");
 }
 
-function parseJsonObject<T>(rawText: string): T {
+function parseAndValidate<T>(
+  rawText: string,
+  zodSchema: ZodType<T> | undefined
+): T {
   const cleaned = stripFences(rawText).trim();
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
@@ -151,7 +160,40 @@ function parseJsonObject<T>(rawText: string): T {
     firstBrace >= 0 && lastBrace > firstBrace
       ? cleaned.slice(firstBrace, lastBrace + 1)
       : cleaned;
-  return JSON.parse(candidate) as T;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    throw new LlmOutputParseError(
+      `LLM output was not valid JSON: ${detail}`,
+      rawText
+    );
+  }
+
+  if (!zodSchema) {
+    return parsed as T;
+  }
+
+  const result = zodSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new LlmOutputParseError(
+      `LLM output failed schema validation: ${formatZodIssues(result.error)}`,
+      rawText
+    );
+  }
+  return result.data;
+}
+
+function formatZodIssues(error: { issues: Array<{ path: PropertyKey[]; message: string }> }): string {
+  return error.issues
+    .slice(0, 3)
+    .map((issue) => {
+      const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+      return `${path}: ${issue.message}`;
+    })
+    .join("; ");
 }
 
 function stripFences(text: string): string {
