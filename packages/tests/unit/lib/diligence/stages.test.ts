@@ -14,6 +14,7 @@ vi.mock("@/lib/generated/prisma/client", () => ({
     Q4_EXECUTION_CAPABILITY: "Q4_EXECUTION_CAPABILITY",
     Q5_BUSINESS_MODEL_VIABILITY: "Q5_BUSINESS_MODEL_VIABILITY",
     Q6_RISK_ANALYSIS: "Q6_RISK_ANALYSIS",
+    Q7_EVIDENCE_QUALITY: "Q7_EVIDENCE_QUALITY",
     Q8_FAILURE_MODES_AND_FRAGILITY: "Q8_FAILURE_MODES_AND_FRAGILITY",
     OPEN_QUESTIONS: "OPEN_QUESTIONS",
     EXECUTIVE_SUMMARY: "EXECUTIVE_SUMMARY",
@@ -40,8 +41,8 @@ const {
 } = await import("@/lib/diligence/stages");
 
 describe("DILIGENCE_STAGE_SEQUENCE", () => {
-  it("contains 16 stages", () => {
-    expect(DILIGENCE_STAGE_SEQUENCE).toHaveLength(16);
+  it("contains 17 stages", () => {
+    expect(DILIGENCE_STAGE_SEQUENCE).toHaveLength(17);
   });
 
   it("starts with DOCUMENT_EXTRACTION", () => {
@@ -117,7 +118,7 @@ describe("getNextStage", () => {
 
   it("handles legacy stage aliases when finding next stage", () => {
     expect(getNextStage("RISK_EXTRACTION" as never)).toBe(
-      "Q8_FAILURE_MODES_AND_FRAGILITY"
+      "Q7_EVIDENCE_QUALITY"
     );
     expect(getNextStage("FINAL_REPORT_GENERATION" as never)).toBeNull();
   });

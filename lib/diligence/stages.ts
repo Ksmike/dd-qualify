@@ -25,6 +25,7 @@ export const DILIGENCE_STAGE_SEQUENCE: DiligenceStageName[] = [
   DiligenceStageName.Q4_EXECUTION_CAPABILITY,
   DiligenceStageName.Q5_BUSINESS_MODEL_VIABILITY,
   DiligenceStageName.Q6_RISK_ANALYSIS,
+  DiligenceStageName.Q7_EVIDENCE_QUALITY,
   DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY,
   DiligenceStageName.OPEN_QUESTIONS,
   DiligenceStageName.EXECUTIVE_SUMMARY,
@@ -40,6 +41,7 @@ export const STAGE_TO_QUESTION: Partial<
   [DiligenceStageName.Q4_EXECUTION_CAPABILITY]: DiligenceCoreQuestion.Q4_EXECUTION,
   [DiligenceStageName.Q5_BUSINESS_MODEL_VIABILITY]: DiligenceCoreQuestion.Q5_BUSINESS_MODEL,
   [DiligenceStageName.Q6_RISK_ANALYSIS]: DiligenceCoreQuestion.Q6_RISKS,
+  [DiligenceStageName.Q7_EVIDENCE_QUALITY]: DiligenceCoreQuestion.Q7_EVIDENCE,
   [DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY]: DiligenceCoreQuestion.Q8_FAILURE_MODES,
 };
 

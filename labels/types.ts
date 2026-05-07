@@ -148,6 +148,7 @@ export type AppLabels = {
         Q4_EXECUTION_CAPABILITY: string;
         Q5_BUSINESS_MODEL_VIABILITY: string;
         Q6_RISK_ANALYSIS: string;
+        Q7_EVIDENCE_QUALITY: string;
         Q8_FAILURE_MODES_AND_FRAGILITY: string;
         OPEN_QUESTIONS: string;
         EXECUTIVE_SUMMARY: string;

@@ -264,6 +264,25 @@ export function getStagePromptPlan(stage: DiligenceStageName): StagePromptPlan {
         ],
       });
 
+    case DiligenceStageName.Q7_EVIDENCE_QUALITY:
+      return questionPlan({
+        question: "Q7: What evidence supports the claims?",
+        checklist: [
+          "Evidence basis: for each major claim (revenue, customers, growth, IP), what is the source — audited financials, signed contracts, pitch deck assertion, verbal statement?",
+          "Source quality: independent/third-party vs. self-reported. Audited vs. unaudited. Signed vs. unsigned.",
+          "Corroboration: which claims are supported by multiple independent sources? Which rest on a single assertion?",
+          "Recency: how current is the evidence? Flag stale data (>12 months old for fast-moving metrics).",
+          "Completeness: what evidence would a reasonable investor expect to see at this stage that is absent?",
+          "Confidence assessment: for each core question (Q1–Q6), rate the overall evidence quality.",
+        ],
+        deliverables: [
+          'evidence_assessment: array of {"question": "Q1_IDENTITY|Q2_PRODUCT|Q3_MARKET|Q4_EXECUTION|Q5_BUSINESS_MODEL|Q6_RISKS", "evidence_quality": "strong|adequate|weak|absent", "basis": "audited|signed_contracts|third_party|self_reported|pitch_deck_only|verbal", "corroborated": true|false, "staleness_risk": true|false, "reasoning": "...", "chunk_refs": []}',
+          'uncorroborated_claims: array of {"claim": "...", "source": "single_document|verbal|pitch_deck", "severity": "blocker|high|medium|low", "chunk_refs": []}',
+          'missing_evidence: array of {"expected": "what a reasonable investor would expect", "impact": "blocker|high|medium|low", "chunk_refs": []}',
+          COMMON_GAP_INSTRUCTION,
+        ],
+      });
+
     case DiligenceStageName.Q8_FAILURE_MODES_AND_FRAGILITY:
       return questionPlan({
         question: "Q8: What could materially fail?",
