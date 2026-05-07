@@ -30,7 +30,7 @@ export default async function DashboardPage() {
   } as const;
 
   return (
-    <div>
+    <div className="w-full">
       <h1 className="text-2xl font-semibold text-foreground">
         {labels.app.dashboard.heading}
       </h1>

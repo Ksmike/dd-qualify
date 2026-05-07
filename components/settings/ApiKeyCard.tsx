@@ -171,20 +171,22 @@ export function ApiKeyCard({
   return (
     <div className="rounded-xl border border-divider bg-content1 transition-shadow hover:shadow-sm">
       {/* Header row */}
-      <div className="flex items-center gap-4 p-5">
-        {/* Provider icon */}
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
-          <Icon className={`h-5 w-5 ${iconColor}`} />
-        </div>
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
+        <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+          {/* Provider icon */}
+          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+            <Icon className={`h-5 w-5 ${iconColor}`} />
+          </div>
 
-        {/* Provider info */}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">{meta.name}</p>
-          <p className="text-xs text-foreground/50">{meta.description}</p>
+          {/* Provider info */}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">{meta.name}</p>
+            <p className="text-xs leading-snug text-foreground/50">{meta.description}</p>
+          </div>
         </div>
 
         {/* Status badge + action buttons */}
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-3">
           {status.isSet ? (
             <>
               <span className="flex items-center gap-1.5 rounded-full bg-[#10a37f]/10 px-2.5 py-0.5 text-xs font-medium text-[#10a37f]">
@@ -192,7 +194,7 @@ export function ApiKeyCard({
                 Connected
               </span>
               {mode === "idle" && (
-                <>
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setMode("editing")}
                     disabled={isPending}
@@ -213,7 +215,7 @@ export function ApiKeyCard({
                       <FiTrash2 className="h-3.5 w-3.5" />
                     )}
                   </button>
-                </>
+                </div>
               )}
             </>
           ) : (
@@ -236,8 +238,8 @@ export function ApiKeyCard({
 
       {/* Input row */}
       {showInput && (
-        <div className="border-t border-divider p-5 pt-4">
-          <div className="flex gap-2">
+        <div className="border-t border-divider p-4 pt-4 sm:p-5 sm:pt-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
             <input
               type="password"
               value={inputValue}
@@ -248,33 +250,35 @@ export function ApiKeyCard({
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
               placeholder={mode === "editing" ? "Paste new key to update" : meta.placeholder}
               autoComplete="off"
-              className="flex-1 rounded-md border border-divider bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:font-sans placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full min-w-0 flex-1 rounded-md border border-divider bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:font-sans placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
-            <button
-              onClick={handleSave}
-              disabled={isPending || !inputValue.trim()}
-              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isPending && <FiLoader className="h-3.5 w-3.5 animate-spin" />}
-              {isPending ? "Saving…" : status.isSet ? "Update" : "Save"}
-            </button>
-            <button
-              onClick={() => void handleTestKey()}
-              disabled={isValidating || !inputValue.trim()}
-              className="rounded-md border border-divider px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-content2 disabled:opacity-40"
-            >
-              {isValidating ? "Testing…" : "Test key"}
-            </button>
-            {mode === "editing" && (
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               <button
-                onClick={handleCancel}
-                disabled={isPending}
-                title="Cancel"
-                className="flex h-10 w-10 items-center justify-center rounded-md border border-divider text-foreground/50 transition-colors hover:bg-content2 hover:text-foreground disabled:opacity-50"
+                onClick={handleSave}
+                disabled={isPending || !inputValue.trim()}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
               >
-                <FiX className="h-4 w-4" />
+                {isPending && <FiLoader className="h-3.5 w-3.5 animate-spin" />}
+                {isPending ? "Saving…" : status.isSet ? "Update" : "Save"}
               </button>
-            )}
+              <button
+                onClick={() => void handleTestKey()}
+                disabled={isValidating || !inputValue.trim()}
+                className="flex-1 rounded-md border border-divider px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-content2 disabled:opacity-40 sm:flex-none"
+              >
+                {isValidating ? "Testing…" : "Test key"}
+              </button>
+              {mode === "editing" && (
+                <button
+                  onClick={handleCancel}
+                  disabled={isPending}
+                  title="Cancel"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-divider text-foreground/50 transition-colors hover:bg-content2 hover:text-foreground disabled:opacity-50"
+                >
+                  <FiX className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
           {error && (
             <p className="mt-2 flex items-center gap-1.5 text-xs text-danger">
@@ -286,7 +290,7 @@ export function ApiKeyCard({
       )}
 
       {status.isSet && mode === "idle" && (
-        <div className="space-y-3 border-t border-divider p-5 pt-4">
+        <div className="space-y-3 border-t border-divider p-4 pt-4 sm:p-5 sm:pt-4">
           <label className="block">
             <span className="text-xs text-foreground/60">Default model</span>
             <input
@@ -309,7 +313,7 @@ export function ApiKeyCard({
             type="button"
             onClick={handleSaveSettings}
             disabled={isPending}
-            className="rounded-md border border-divider px-3 py-1.5 text-xs font-medium text-foreground hover:bg-content2 disabled:opacity-50"
+            className="w-full rounded-md border border-divider px-3 py-2 text-xs font-medium text-foreground hover:bg-content2 disabled:opacity-50 sm:w-auto sm:py-1.5"
           >
             Save provider settings
           </button>

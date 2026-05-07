@@ -39,6 +39,9 @@ vi.mock("@/app/(app)/project/[id]/ProjectHeader", () => ({
     </div>
   ),
 }));
+vi.mock("@/app/(app)/project/[id]/DeleteProjectButton", () => ({
+  DeleteProjectButton: () => <div data-testid="delete-project-button" />,
+}));
 vi.mock("@/components/settings/ApiKeySection", () => ({
   ApiKeySection: () => <div data-testid="api-key-section" />,
 }));
@@ -174,10 +177,10 @@ vi.mock("@/labels", () => ({
           dropzoneTitle: "Drag and drop files to upload",
           dropzoneHint: "Files upload automatically after drop.",
           uploadQueueHeading: "Upload progress",
-          uploadStatusQueued: "queued",
-          uploadStatusUploading: "uploading",
-          uploadStatusUploaded: "uploaded",
-          uploadStatusFailed: "failed",
+          uploadStatusQueued: "Queued",
+          uploadStatusUploading: "Uploading",
+          uploadStatusUploaded: "Uploaded",
+          uploadStatusFailed: "Failed",
           emptyDocuments: "No files uploaded yet.",
           loadingDocuments: "Loading files...",
           loadError: "Failed to load files.",
@@ -191,10 +194,10 @@ vi.mock("@/labels", () => ({
           reprocessError: "Failed to queue file for re-processing.",
           fileStatusLabel: "File status",
           fileProcessingStatuses: {
-            QUEUED: "queued",
-            PROCESSING: "processing",
-            PROCESSED: "processed",
-            FAILED: "failed",
+            QUEUED: "Queued",
+            PROCESSING: "Processing",
+            PROCESSED: "Processed",
+            FAILED: "Failed",
           },
           beDiligentCta: "Be Diligent",
           providerSelectionLabel: "Provider",
@@ -220,12 +223,12 @@ vi.mock("@/labels", () => ({
           diligenceRetryToast: "Diligence retry started.",
           diligenceRetryErrorToast: "Failed to retry due diligence.",
           diligenceStatuses: {
-            QUEUED: "queued",
-            RUNNING: "running",
-            WAITING_INPUT: "waiting for input",
-            COMPLETED: "completed",
-            FAILED: "failed",
-            CANCELED: "canceled",
+            QUEUED: "Queued",
+            RUNNING: "Running",
+            WAITING_INPUT: "Waiting for Input",
+            COMPLETED: "Completed",
+            FAILED: "Failed",
+            CANCELED: "Canceled",
           },
           diligenceStages: {
             DOCUMENT_EXTRACTION: "document extraction",

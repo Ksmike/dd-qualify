@@ -6,11 +6,6 @@ vi.mock("@/lib/utils/copyToClipboard", () => ({
   copyToClipboard: (...args: unknown[]) => mockCopyToClipboard(...args),
 }));
 
-const mockDeleteProject = vi.fn().mockResolvedValue({});
-vi.mock("@/lib/actions/project", () => ({
-  deleteProject: (...args: unknown[]) => mockDeleteProject(...args),
-}));
-
 const mockToast = { success: vi.fn(), danger: vi.fn() };
 vi.mock("@heroui/react", () => ({
   toast: mockToast,
@@ -28,11 +23,6 @@ const mockLabels = {
   copyIdAriaLabel: "Copy project ID",
   copySuccessToast: "Copied!",
   copyErrorToast: "Failed to copy",
-  deleteProjectCta: "Delete Project",
-  deleteProjectConfirm: "Are you sure?",
-  deleteProjectInProgress: "Deleting...",
-  deleteProjectSuccessToast: "Project deleted",
-  deleteProjectErrorToast: "Failed to delete",
 };
 
 describe("ProjectHeader", () => {
@@ -101,23 +91,6 @@ describe("ProjectHeader", () => {
     expect(screen.getByText("proj-123")).toBeInTheDocument();
   });
 
-  it("renders delete button", () => {
-    render(
-      <ProjectHeader
-        projectName="Acme Corp"
-        projectId="proj-123"
-        projectStatus="draft"
-        projectStatusLabel="Draft"
-        createdAtLabel="Jan 1, 2024"
-        labels={mockLabels}
-      />
-    );
-
-    expect(
-      screen.getByRole("button", { name: "Delete Project" })
-    ).toBeInTheDocument();
-  });
-
   it("renders copy ID button with aria label", () => {
     render(
       <ProjectHeader
@@ -178,67 +151,4 @@ describe("ProjectHeader", () => {
     });
   });
 
-  it("deletes project after confirmation", async () => {
-    mockDeleteProject.mockResolvedValue({});
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(
-      <ProjectHeader
-        projectName="Acme Corp"
-        projectId="proj-123"
-        projectStatus="draft"
-        projectStatusLabel="Draft"
-        createdAtLabel="Jan 1, 2024"
-        labels={mockLabels}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
-
-    await waitFor(() => {
-      expect(mockDeleteProject).toHaveBeenCalledWith("proj-123");
-      expect(mockToast.success).toHaveBeenCalledWith("Project deleted");
-    });
-  });
-
-  it("does not delete when confirmation is cancelled", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-
-    render(
-      <ProjectHeader
-        projectName="Acme Corp"
-        projectId="proj-123"
-        projectStatus="draft"
-        projectStatusLabel="Draft"
-        createdAtLabel="Jan 1, 2024"
-        labels={mockLabels}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
-
-    expect(mockDeleteProject).not.toHaveBeenCalled();
-  });
-
-  it("shows error toast when delete fails", async () => {
-    mockDeleteProject.mockResolvedValue({ error: "Permission denied" });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(
-      <ProjectHeader
-        projectName="Acme Corp"
-        projectId="proj-123"
-        projectStatus="draft"
-        projectStatusLabel="Draft"
-        createdAtLabel="Jan 1, 2024"
-        labels={mockLabels}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
-
-    await waitFor(() => {
-      expect(mockToast.danger).toHaveBeenCalledWith("Permission denied");
-    });
-  });
 });

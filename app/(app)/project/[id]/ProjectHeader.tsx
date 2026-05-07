@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "@heroui/react";
 import { copyToClipboard } from "@/lib/utils/copyToClipboard";
-import { deleteProject } from "@/lib/actions/project";
 import type { ProjectStatus } from "@/lib/models/ProjectModel";
 
 type ProjectHeaderLabels = {
@@ -15,11 +12,6 @@ type ProjectHeaderLabels = {
   copyIdAriaLabel: string;
   copySuccessToast: string;
   copyErrorToast: string;
-  deleteProjectCta: string;
-  deleteProjectConfirm: string;
-  deleteProjectInProgress: string;
-  deleteProjectSuccessToast: string;
-  deleteProjectErrorToast: string;
 };
 
 type ProjectHeaderProps = {
@@ -47,9 +39,6 @@ export function ProjectHeader({
   createdAtLabel,
   labels,
 }: ProjectHeaderProps) {
-  const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
-
   async function handleCopyProjectId() {
     const copied = await copyToClipboard(projectId);
     if (copied) {
@@ -59,40 +48,11 @@ export function ProjectHeader({
     toast.danger(labels.copyErrorToast);
   }
 
-  async function handleDeleteProject() {
-    if (!window.confirm(labels.deleteProjectConfirm)) {
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      const result = await deleteProject(projectId);
-      if (result.error) {
-        toast.danger(result.error || labels.deleteProjectErrorToast);
-        return;
-      }
-      toast.success(labels.deleteProjectSuccessToast);
-      router.replace("/dashboard");
-    } finally {
-      setIsDeleting(false);
-    }
-  }
-
   return (
     <header className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{labels.heading}</h1>
-          <p className="mt-2 text-foreground/70">{projectName}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void handleDeleteProject()}
-          disabled={isDeleting}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/15 disabled:opacity-60 sm:w-auto"
-        >
-          {isDeleting ? labels.deleteProjectInProgress : labels.deleteProjectCta}
-        </button>
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">{labels.heading}</h1>
+        <p className="mt-2 text-foreground/70">{projectName}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-sm">

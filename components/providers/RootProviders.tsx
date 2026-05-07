@@ -1,6 +1,8 @@
 "use client";
 
+import { Suspense } from "react";
 import { Provider as JotaiProvider } from "jotai";
+import { NavigationProgress } from "@/components/NavigationProgress";
 import { ThemeProvider } from "./ThemeProvider";
 
 /**
@@ -10,7 +12,12 @@ import { ThemeProvider } from "./ThemeProvider";
 export function RootProviders({ children }: { children: React.ReactNode }) {
   return (
     <JotaiProvider>
-      <ThemeProvider>{children}</ThemeProvider>
+      <ThemeProvider>
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
+        {children}
+      </ThemeProvider>
     </JotaiProvider>
   );
 }

@@ -4,6 +4,7 @@ import { getLabelsForLocale } from "@/labels";
 import { ProjectModel } from "@/lib/models/ProjectModel";
 import { ProjectDocumentsPanel } from "@/app/(app)/project/[id]/ProjectDocumentsPanel";
 import { ProjectHeader } from "@/app/(app)/project/[id]/ProjectHeader";
+import { DeleteProjectButton } from "@/app/(app)/project/[id]/DeleteProjectButton";
 import { getApiKeyStatuses } from "@/lib/actions/apiKeys";
 import { DiligenceJobModel } from "@/lib/models/DiligenceJobModel";
 
@@ -74,6 +75,19 @@ export default async function ProjectInspectPage({
         insights={insights}
         labels={labels.app.projectInspect}
       />
+
+      <div className="flex justify-end pt-2">
+        <DeleteProjectButton
+          projectId={project.id}
+          labels={{
+            deleteProjectCta: labels.app.projectInspect.deleteProjectCta,
+            deleteProjectConfirm: labels.app.projectInspect.deleteProjectConfirm,
+            deleteProjectInProgress: labels.app.projectInspect.deleteProjectInProgress,
+            deleteProjectSuccessToast: labels.app.projectInspect.deleteProjectSuccessToast,
+            deleteProjectErrorToast: labels.app.projectInspect.deleteProjectErrorToast,
+          }}
+        />
+      </div>
     </div>
   );
 }

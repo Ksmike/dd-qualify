@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   const apiKeyStatuses = await getApiKeyStatuses();
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full min-w-0 max-w-2xl overflow-x-hidden">
       {/* Page header */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
