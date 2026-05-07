@@ -49,7 +49,7 @@ describe("InsightsView", () => {
     expect(screen.getByText("No insights available yet.")).toBeInTheDocument();
   });
 
-  it("renders job information when data is provided", () => {
+  it("renders header when data is provided", () => {
     const data = {
       job: {
         id: "job-1",
@@ -74,10 +74,7 @@ describe("InsightsView", () => {
 
     expect(screen.getByText("Insights")).toBeInTheDocument();
     expect(screen.getByText("Acme — Analysis results")).toBeInTheDocument();
-    expect(screen.getByText("Job Information")).toBeInTheDocument();
-    expect(screen.getByText("OPENAI")).toBeInTheDocument();
-    expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
-    expect(screen.getByText("5,000")).toBeInTheDocument();
+    expect(screen.queryByText("No insights available yet.")).not.toBeInTheDocument();
   });
 
   it("renders findings section when findings exist", () => {
@@ -190,7 +187,7 @@ describe("InsightsView", () => {
 
     expect(screen.getByText("Entities")).toBeInTheDocument();
     expect(screen.getByText("John Smith")).toBeInTheDocument();
-    expect(screen.getByText("PERSON")).toBeInTheDocument();
+    expect(screen.getByText("Person")).toBeInTheDocument();
   });
 
   it("renders contradictions section when contradictions exist", () => {

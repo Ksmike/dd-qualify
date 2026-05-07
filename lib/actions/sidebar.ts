@@ -7,7 +7,13 @@ import { ProjectModel } from "@/lib/models/ProjectModel";
 
 export async function getProjectForSidebar(
   projectId: string
-): Promise<{ id: string; name: string; hasInsights: boolean; hasReports: boolean } | null> {
+): Promise<{
+  id: string;
+  name: string;
+  hasInsights: boolean;
+  hasReports: boolean;
+  hasEnquiries: boolean;
+} | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
   const project = await ProjectModel.findByIdForUser({
@@ -16,7 +22,7 @@ export async function getProjectForSidebar(
   });
   if (!project) return null;
 
-  const [insightRecord, reportRecord] = await Promise.all([
+  const [insightRecord, reportRecord, completedReportRecord] = await Promise.all([
     db.diligenceJob.findFirst({
       where: {
         projectId: project.id,
@@ -41,6 +47,17 @@ export async function getProjectForSidebar(
       },
       select: { id: true },
     }),
+    db.diligenceArtifact.findFirst({
+      where: {
+        projectId: project.id,
+        userId: session.user.id,
+        type: "GENERATED_REPORT",
+        job: {
+          status: DiligenceJobStatus.COMPLETED,
+        },
+      },
+      select: { id: true },
+    }),
   ]);
 
   return {
@@ -48,5 +65,6 @@ export async function getProjectForSidebar(
     name: project.name,
     hasInsights: Boolean(insightRecord),
     hasReports: Boolean(reportRecord),
+    hasEnquiries: Boolean(completedReportRecord),
   };
 }

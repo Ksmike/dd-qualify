@@ -217,6 +217,21 @@ export type AppLabels = {
     enquiries: {
       heading: string;
       description: string;
+      lockedTitle: string;
+      lockedDescription: string;
+      introMessage: string;
+      sampleQuestionsHeading: string;
+      sampleQuestionOne: string;
+      sampleQuestionTwo: string;
+      sampleQuestionThree: string;
+      sendCta: string;
+      sendingCta: string;
+      investorLabel: string;
+      agentLabel: string;
+      agentThinking: string;
+      sourcesHeading: string;
+      errorPrefix: string;
+      genericError: string;
       placeholder: string;
     };
     projectCreation: {

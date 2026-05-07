@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
@@ -18,12 +18,13 @@ type ProjectSubNavItem = {
 function buildProjectSubNav(input: {
   hasInsights: boolean;
   hasReports: boolean;
+  hasEnquiries: boolean;
 }): ProjectSubNavItem[] {
   return [
     { label: "General", suffix: "" },
     ...(input.hasInsights ? [{ label: "Insights", suffix: "/insights" }] : []),
     ...(input.hasReports ? [{ label: "Reports", suffix: "/report" }] : []),
-    { label: "Enquiries", suffix: "/enquiries" },
+    ...(input.hasEnquiries ? [{ label: "Enquiries", suffix: "/enquiries" }] : []),
   ];
 }
 
@@ -38,31 +39,80 @@ export function MobileSidebar() {
     name: string;
     hasInsights: boolean;
     hasReports: boolean;
+    hasEnquiries: boolean;
   } | null>(null);
 
+  const refreshSidebarData = useCallback(() => {
+    if (!projectId) return;
+    getProjectForSidebar(projectId).then((project) => {
+      setProjectSidebarData(project);
+    });
+  }, [projectId]);
+
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    if (!open) return;
+
+    // Save current scroll position and lock the page in place.
+    // Using position:fixed on body is the most reliable way to prevent
+    // background scroll on iOS Safari.
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+    const { body, documentElement } = document;
+
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = `-${scrollX}px`;
+    body.style.right = "0";
+    body.style.overflow = "hidden";
+    documentElement.style.overflow = "hidden";
+
     return () => {
-      document.body.style.overflow = "";
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      body.style.overflow = "";
+      documentElement.style.overflow = "";
+      // Restore scroll position after unlocking
+      window.scrollTo(scrollX, scrollY);
     };
   }, [open]);
 
+  // Fetch on projectId change
   useEffect(() => {
     if (!projectId) {
       setProjectSidebarData(null);
       return;
     }
 
-    let isMounted = true;
-    getProjectForSidebar(projectId).then((project) => {
-      if (!isMounted) return;
-      setProjectSidebarData(project);
-    });
+    refreshSidebarData();
+  }, [projectId, refreshSidebarData]);
 
+  // Listen for explicit sidebar refresh events
+  useEffect(() => {
+    function handleRefresh() {
+      refreshSidebarData();
+    }
+
+    window.addEventListener("ddq:sidebar-refresh", handleRefresh);
     return () => {
-      isMounted = false;
+      window.removeEventListener("ddq:sidebar-refresh", handleRefresh);
     };
-  }, [projectId]);
+  }, [refreshSidebarData]);
+
+  // Re-fetch when the page becomes visible again
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && projectId) {
+        refreshSidebarData();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [projectId, refreshSidebarData]);
 
   // Close on route change
   useEffect(() => {
@@ -84,6 +134,7 @@ export function MobileSidebar() {
   const projectSubNav = buildProjectSubNav({
     hasInsights: projectSidebarData?.hasInsights ?? false,
     hasReports: projectSidebarData?.hasReports ?? false,
+    hasEnquiries: projectSidebarData?.hasEnquiries ?? false,
   });
 
   return (
@@ -108,15 +159,16 @@ export function MobileSidebar() {
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-[60] bg-black/50"
+          className="fixed inset-0 z-[60] bg-black/50 touch-none"
           onClick={() => setOpen(false)}
+          onTouchMove={(e) => e.preventDefault()}
           aria-hidden="true"
         />
       )}
 
       {/* Slide-out panel */}
       <aside
-        className={`fixed inset-y-0 left-0 z-[70] flex w-64 flex-col bg-background shadow-xl transition-transform duration-200 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-[70] flex w-64 flex-col bg-background shadow-xl transition-transform duration-200 ease-in-out overscroll-contain ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         role={open ? "dialog" : undefined}

@@ -171,8 +171,25 @@ export const appLabels: AppLabels["app"] = {
   },
   enquiries: {
     heading: "Enquiries",
-    description: "Open questions and follow-ups for this project.",
-    placeholder: "Enquiries are coming soon.",
+    description: "Investor Q&A grounded in the completed diligence report and source files.",
+    lockedTitle: "Enquiries unlock after a completed report.",
+    lockedDescription:
+      "Finish due diligence and generate a report first. Then you can ask investor-style follow-up questions here.",
+    introMessage:
+      "Ask me anything about this diligence report and the uploaded documents. I will answer using available evidence and call out any gaps.",
+    sampleQuestionsHeading: "Try asking:",
+    sampleQuestionOne: "What is the biggest risk that could break this deal?",
+    sampleQuestionTwo: "Which claims have weak supporting evidence?",
+    sampleQuestionThree: "What should we ask founders before IC?",
+    sendCta: "Ask agent",
+    sendingCta: "Analyzing…",
+    investorLabel: "Investor",
+    agentLabel: "Diligence agent",
+    agentThinking: "Reviewing report and evidence…",
+    sourcesHeading: "Evidence used",
+    errorPrefix: "Enquiry failed",
+    genericError: "Could not generate an answer for that question.",
+    placeholder: "Ask a follow-up about the report or uploaded data...",
   },
   projectCreation: {
     heading: "Create project",

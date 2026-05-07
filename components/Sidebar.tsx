@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FiChevronLeft } from "react-icons/fi";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -22,12 +22,13 @@ type ProjectSubNavItem = {
 function buildProjectSubNav(input: {
   hasInsights: boolean;
   hasReports: boolean;
+  hasEnquiries: boolean;
 }): ProjectSubNavItem[] {
   return [
     { label: "General", suffix: "" },
     ...(input.hasInsights ? [{ label: "Insights", suffix: "/insights" }] : []),
     ...(input.hasReports ? [{ label: "Reports", suffix: "/report" }] : []),
-    { label: "Enquiries", suffix: "/enquiries" },
+    ...(input.hasEnquiries ? [{ label: "Enquiries", suffix: "/enquiries" }] : []),
   ];
 }
 
@@ -41,24 +42,82 @@ export function Sidebar() {
     name: string;
     hasInsights: boolean;
     hasReports: boolean;
+    hasEnquiries: boolean;
   } | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const refreshSidebarData = useCallback(() => {
+    if (!projectId) return;
+    getProjectForSidebar(projectId).then((project) => {
+      setProjectSidebarData(project);
+    });
+  }, [projectId]);
+
+  // Fetch on projectId change
   useEffect(() => {
     if (!projectId) {
       setProjectSidebarData(null);
       return;
     }
 
-    let isMounted = true;
-    getProjectForSidebar(projectId).then((project) => {
-      if (!isMounted) return;
-      setProjectSidebarData(project);
-    });
+    refreshSidebarData();
+  }, [projectId, refreshSidebarData]);
+
+  // Listen for explicit sidebar refresh events (dispatched when project state changes)
+  useEffect(() => {
+    function handleRefresh() {
+      refreshSidebarData();
+    }
+
+    window.addEventListener("ddq:sidebar-refresh", handleRefresh);
+    return () => {
+      window.removeEventListener("ddq:sidebar-refresh", handleRefresh);
+    };
+  }, [refreshSidebarData]);
+
+  // Re-fetch when the page becomes visible again (e.g., user switches back to tab)
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && projectId) {
+        refreshSidebarData();
+      }
+    }
+
+    function handleFocus() {
+      if (projectId) {
+        refreshSidebarData();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [projectId, refreshSidebarData]);
+
+  // Poll for updates while on a project page (every 15s) to catch async state changes
+  useEffect(() => {
+    if (!projectId) {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      return;
+    }
+
+    refreshTimerRef.current = setInterval(() => {
+      refreshSidebarData();
+    }, 15_000);
 
     return () => {
-      isMounted = false;
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
     };
-  }, [projectId]);
+  }, [projectId, refreshSidebarData]);
 
   useEffect(() => {
     function handleHighlightSettings() {
@@ -121,6 +180,7 @@ function ProjectNav({
     name: string;
     hasInsights: boolean;
     hasReports: boolean;
+    hasEnquiries: boolean;
   } | null;
   pathname: string;
   highlightSettings: boolean;
@@ -128,6 +188,7 @@ function ProjectNav({
   const projectSubNav = buildProjectSubNav({
     hasInsights: projectSidebarData?.hasInsights ?? false,
     hasReports: projectSidebarData?.hasReports ?? false,
+    hasEnquiries: projectSidebarData?.hasEnquiries ?? false,
   });
 
   return (

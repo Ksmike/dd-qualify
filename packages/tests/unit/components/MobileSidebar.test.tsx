@@ -58,6 +58,7 @@ describe("MobileSidebar — project nav", () => {
       name: "Alpha Project",
       hasInsights: true,
       hasReports: true,
+      hasEnquiries: true,
     });
     mockPathname.mockReturnValue("/project/p-1");
     render(<MobileSidebar />);
@@ -85,6 +86,7 @@ describe("MobileSidebar — project nav", () => {
       name: "Alpha Project",
       hasInsights: false,
       hasReports: false,
+      hasEnquiries: false,
     });
     mockPathname.mockReturnValue("/project/p-1");
 
@@ -94,7 +96,7 @@ describe("MobileSidebar — project nav", () => {
 
     expect(screen.queryByRole("link", { name: "Insights" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Reports" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Enquiries" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Enquiries" })).not.toBeInTheDocument();
   });
 
   it("shows the project name once loaded", async () => {
@@ -103,6 +105,7 @@ describe("MobileSidebar — project nav", () => {
       name: "Alpha Project",
       hasInsights: true,
       hasReports: true,
+      hasEnquiries: true,
     });
     mockPathname.mockReturnValue("/project/p-1");
     render(<MobileSidebar />);
@@ -116,6 +119,7 @@ describe("MobileSidebar — project nav", () => {
       name: "Alpha Project",
       hasInsights: true,
       hasReports: true,
+      hasEnquiries: true,
     });
     mockPathname.mockReturnValue("/project/p-1");
     render(<MobileSidebar />);

@@ -53,10 +53,10 @@ export default async function DashboardPage() {
             <li key={project.id}>
               <Link
                 href={`/project/${project.id}`}
-                className="flex items-center justify-between rounded-md border border-divider bg-content1 px-4 py-3 transition-colors hover:bg-content2"
+                className="flex flex-col gap-2 rounded-md border border-divider bg-content1 px-4 py-3 transition-colors hover:bg-content2 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div>
-                  <p className="text-sm font-medium text-foreground">{project.name}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
                   <p className="mt-1 text-xs text-foreground/60">
                     {labels.app.dashboard.statusHeading}
                   </p>

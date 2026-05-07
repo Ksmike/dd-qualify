@@ -21,7 +21,7 @@ export default async function AppLayout({
 
   return (
     <Providers user={user}>
-      <div className="flex flex-1 flex-col md:flex-row">
+      <div className="flex flex-1 min-h-0 flex-col md:flex-row">
         {/* Mobile header with hamburger */}
         <header className="flex items-center gap-3 border-b border-divider bg-background px-4 py-3 md:hidden">
           <MobileSidebar />
@@ -33,7 +33,7 @@ export default async function AppLayout({
         {/* Desktop sidebar */}
         <Sidebar />
 
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 min-h-0 min-w-0 overflow-auto p-4 sm:p-6">{children}</main>
       </div>
     </Providers>
   );

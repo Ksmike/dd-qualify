@@ -5,15 +5,21 @@ import {
   LuShieldCheck,
   LuUsers,
   LuGitCompare,
-  LuCpu,
-  LuCoins,
-  LuClock,
   LuCircleCheck,
   LuCircleX,
   LuCircleHelp,
   LuLightbulb,
   LuEye,
+  LuUser,
+  LuBuilding2,
+  LuBadgePoundSterling,
+  LuTrendingUp,
+  LuTarget,
+  LuHandshake,
+  LuFactory,
+  LuFileText,
 } from "react-icons/lu";
+import type { IconType } from "react-icons";
 import type { AppLabels } from "@/labels/types";
 
 type InsightsLabels = AppLabels["app"]["insights"];
@@ -107,6 +113,50 @@ const claimStatusColors: Record<string, string> = {
   INCONCLUSIVE: "text-warning",
 };
 
+type EntityKindMeta = {
+  label: string;
+  Icon: IconType;
+  className: string;
+};
+
+const ENTITY_KIND_META: Record<string, EntityKindMeta> = {
+  person: {
+    label: "Person",
+    Icon: LuUser,
+    className: "bg-secondary/15 text-secondary",
+  },
+  company: {
+    label: "Company",
+    Icon: LuBuilding2,
+    className: "bg-primary/15 text-primary",
+  },
+  financial_metric: {
+    label: "Financial Metric",
+    Icon: LuBadgePoundSterling,
+    className: "bg-success/15 text-success",
+  },
+  market: {
+    label: "Market",
+    Icon: LuTrendingUp,
+    className: "bg-warning/15 text-warning",
+  },
+  product: {
+    label: "Product",
+    Icon: LuTarget,
+    className: "bg-primary/15 text-primary",
+  },
+  investor: {
+    label: "Investor",
+    Icon: LuHandshake,
+    className: "bg-secondary/15 text-secondary",
+  },
+  competitor: {
+    label: "Competitor",
+    Icon: LuFactory,
+    className: "bg-danger/15 text-danger",
+  },
+};
+
 function ConfidenceBadge({ value }: { value: number | null }) {
   if (value === null) return null;
   const pct = Math.round(value * 100);
@@ -129,7 +179,7 @@ export function InsightsView({ projectName, labels, data }: Props) {
     );
   }
 
-  const { job, findings, claims, entities, contradictions, stageRuns } = data;
+  const { findings, claims, entities, contradictions } = data;
 
   return (
     <div className="space-y-8">
@@ -142,93 +192,6 @@ export function InsightsView({ projectName, labels, data }: Props) {
           {projectName} — {labels.description}
         </p>
       </div>
-
-      {/* Job summary card */}
-      <section className="rounded-xl border border-divider bg-content1 p-5">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-          <LuCpu className="size-5" aria-hidden="true" />
-          {labels.jobInfoHeading}
-        </h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label={labels.providerLabel} value={job.selectedProvider} />
-          <Stat label={labels.modelLabel} value={job.selectedModel} />
-          <Stat
-            label={labels.tokensLabel}
-            value={job.tokenUsageTotal.toLocaleString()}
-            icon={<LuCpu className="size-4 text-foreground/50" />}
-          />
-          <Stat
-            label={labels.costLabel}
-            value={
-              job.estimatedCostUsd !== null
-                ? `$${job.estimatedCostUsd.toFixed(4)}`
-                : "—"
-            }
-            icon={<LuCoins className="size-4 text-foreground/50" />}
-          />
-          <Stat
-            label={labels.createdLabel}
-            value={new Date(job.createdAt).toLocaleDateString()}
-            icon={<LuClock className="size-4 text-foreground/50" />}
-          />
-          <Stat
-            label={labels.completedLabel}
-            value={
-              job.completedAt
-                ? new Date(job.completedAt).toLocaleDateString()
-                : "—"
-            }
-          />
-        </div>
-      </section>
-
-      {/* Pipeline stages */}
-      {stageRuns.length > 0 && (
-        <section className="rounded-xl border border-divider bg-content1 p-5">
-          <h2 className="text-lg font-semibold text-foreground">
-            {labels.stagesHeading}
-          </h2>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-divider text-left text-foreground/60">
-                  <th className="pb-2 pr-4 font-medium">Stage</th>
-                  <th className="pb-2 pr-4 font-medium">{labels.statusLabel}</th>
-                  <th className="pb-2 pr-4 font-medium">{labels.tokensLabel}</th>
-                  <th className="pb-2 pr-4 font-medium">{labels.costLabel}</th>
-                  <th className="pb-2 font-medium">{labels.modelLabel}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stageRuns.map((stage) => (
-                  <tr
-                    key={stage.stage}
-                    className="border-b border-divider/50 last:border-0"
-                  >
-                    <td className="py-2 pr-4 font-medium text-foreground">
-                      {stage.stage.replace(/_/g, " ").toLowerCase()}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <StageStatusBadge status={stage.status} />
-                    </td>
-                    <td className="py-2 pr-4 text-foreground/70">
-                      {stage.tokenUsageTotal.toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-4 text-foreground/70">
-                      {stage.estimatedCostUsd
-                        ? `$${stage.estimatedCostUsd.toFixed(4)}`
-                        : "—"}
-                    </td>
-                    <td className="py-2 text-foreground/70">
-                      {stage.model ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
 
       {/* Findings */}
       {findings.length > 0 && (
@@ -327,6 +290,7 @@ export function InsightsView({ projectName, labels, data }: Props) {
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {entities.map((entity) => {
               const details = extractEntityDetails(entity.metadata);
+              const kindMeta = getEntityKindMeta(entity.kind);
               return (
                 <div
                   key={entity.id}
@@ -336,8 +300,11 @@ export function InsightsView({ projectName, labels, data }: Props) {
                     <span className="text-sm font-medium text-foreground">
                       {entity.name}
                     </span>
-                    <span className="rounded-full bg-content2 px-2 py-0.5 text-xs text-foreground/60">
-                      {entity.kind}
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${kindMeta.className}`}
+                    >
+                      <kindMeta.Icon aria-hidden="true" className="size-3.5" />
+                      {kindMeta.label}
                     </span>
                   </div>
                   {details && (
@@ -403,43 +370,6 @@ export function InsightsView({ projectName, labels, data }: Props) {
         </section>
       )}
     </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-foreground/50">{label}</p>
-      <p className="mt-0.5 flex items-center gap-1 text-sm font-medium text-foreground">
-        {icon}
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function StageStatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    COMPLETED: "bg-success/10 text-success",
-    RUNNING: "bg-primary/10 text-primary",
-    FAILED: "bg-danger/10 text-danger",
-    PENDING: "bg-default/10 text-foreground/50",
-    SKIPPED: "bg-default/10 text-foreground/40",
-  };
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? colors.PENDING}`}
-    >
-      {status.toLowerCase()}
-    </span>
   );
 }
 
@@ -525,4 +455,26 @@ function extractContradictionExplanation(evidenceRefs: unknown): string | null {
   const sourceB = typeof refs.sourceB === "string" ? refs.sourceB : null;
   if (sourceA && sourceB) return `${sourceA} vs. ${sourceB}`;
   return null;
+}
+
+function getEntityKindMeta(kind: string): EntityKindMeta {
+  const normalizedKind = kind.trim().toLowerCase();
+  const exact = ENTITY_KIND_META[normalizedKind];
+  if (exact) {
+    return exact;
+  }
+
+  return {
+    label: formatEntityKindLabel(normalizedKind || kind),
+    Icon: LuFileText,
+    className: "bg-content2 text-foreground/70",
+  };
+}
+
+function formatEntityKindLabel(kind: string): string {
+  return kind
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ");
 }

@@ -82,6 +82,7 @@ describe("getProjectForSidebar", () => {
       name: "Acme Corp",
       hasInsights: true,
       hasReports: true,
+      hasEnquiries: true,
     });
   });
 
@@ -103,6 +104,7 @@ describe("getProjectForSidebar", () => {
       name: "Acme Corp",
       hasInsights: false,
       hasReports: false,
+      hasEnquiries: false,
     });
   });
 });

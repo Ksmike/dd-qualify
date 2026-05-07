@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@heroui/react";
 import { copyToClipboard } from "@/lib/utils/copyToClipboard";
@@ -49,7 +49,6 @@ export function ProjectHeader({
 }: ProjectHeaderProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [, startTransition] = useTransition();
 
   async function handleCopyProjectId() {
     const copied = await copyToClipboard(projectId);
@@ -73,10 +72,7 @@ export function ProjectHeader({
         return;
       }
       toast.success(labels.deleteProjectSuccessToast);
-      startTransition(() => {
-        router.push("/dashboard");
-        router.refresh();
-      });
+      router.replace("/dashboard");
     } finally {
       setIsDeleting(false);
     }
@@ -110,14 +106,14 @@ export function ProjectHeader({
           {labels.createdLabel}:{" "}
           <span className="font-medium text-foreground">{createdAtLabel}</span>
         </p>
-        <div className="flex items-center gap-2">
-          <p className="text-foreground/70">{labels.idLabel}:</p>
-          <p className="font-mono text-sm font-medium text-foreground">{projectId}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-foreground/70 shrink-0">{labels.idLabel}:</p>
+          <p className="font-mono text-sm font-medium text-foreground truncate">{projectId}</p>
           <button
             type="button"
             aria-label={labels.copyIdAriaLabel}
             onClick={handleCopyProjectId}
-            className="rounded-md p-1 text-foreground/70 transition-colors hover:bg-content2 hover:text-foreground"
+            className="shrink-0 rounded-md p-1 text-foreground/70 transition-colors hover:bg-content2 hover:text-foreground"
           >
             <svg
               aria-hidden="true"

@@ -9,6 +9,17 @@ import {
   LuCpu,
   LuCoins,
   LuClock,
+  LuShieldCheck,
+  LuUsers,
+  LuTrendingUp,
+  LuTarget,
+  LuBriefcase,
+  LuTriangleAlert,
+  LuLightbulb,
+  LuScale,
+  LuSearch,
+  LuFileQuestion,
+  LuClipboardList,
 } from "react-icons/lu";
 import type { AppLabels } from "@/labels/types";
 
@@ -48,6 +59,49 @@ const typeIcons: Record<string, typeof LuFileText> = {
   EVIDENCE_MAP: LuMap,
 };
 
+/**
+ * Maps raw section/title identifiers from the diligence pipeline
+ * to proper human-readable headings.
+ */
+const SECTION_LABELS: Record<string, { title: string; icon: typeof LuFileText }> = {
+  thesis: { title: "Investment Thesis", icon: LuLightbulb },
+  executive_summary: { title: "Executive Summary", icon: LuClipboardList },
+  q1_identity: { title: "Identity & Ownership", icon: LuUsers },
+  q1_identity_and_ownership: { title: "Identity & Ownership", icon: LuUsers },
+  q2_product: { title: "Product & Technology", icon: LuCpu },
+  q2_product_and_technology: { title: "Product & Technology", icon: LuCpu },
+  q3_market: { title: "Market & Traction", icon: LuTrendingUp },
+  q3_market_and_traction: { title: "Market & Traction", icon: LuTrendingUp },
+  q4_execution: { title: "Execution Capability", icon: LuTarget },
+  q4_execution_capability: { title: "Execution Capability", icon: LuTarget },
+  q5_business_model: { title: "Business Model Viability", icon: LuBriefcase },
+  q5_business_model_viability: { title: "Business Model Viability", icon: LuBriefcase },
+  q6_risks: { title: "Risk Analysis", icon: LuTriangleAlert },
+  q6_risk_analysis: { title: "Risk Analysis", icon: LuTriangleAlert },
+  q7_legal: { title: "Legal & Compliance", icon: LuScale },
+  q7_legal_and_compliance: { title: "Legal & Compliance", icon: LuScale },
+  q8_failure_modes: { title: "Failure Modes & Fragility", icon: LuTriangleAlert },
+  q8_failure_modes_and_fragility: { title: "Failure Modes & Fragility", icon: LuTriangleAlert },
+  open_questions: { title: "Open Questions", icon: LuFileQuestion },
+  corroboration: { title: "Corroboration & Evidence", icon: LuShieldCheck },
+  final_report: { title: "Final Report", icon: LuFileText },
+  evidence_indexing: { title: "Evidence Indexing", icon: LuSearch },
+};
+
+function getSectionDisplay(raw: string): { title: string; icon: typeof LuFileText } {
+  const key = raw.toLowerCase().trim();
+  if (SECTION_LABELS[key]) return SECTION_LABELS[key];
+
+  // Fallback: convert snake_case/kebab-case to Title Case
+  const formatted = key
+    .replace(/[_-]/g, " ")
+    .replace(/\bq\d+\s*/g, "") // strip q1, q2 prefixes
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+
+  return { title: formatted || raw, icon: LuFileText };
+}
+
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -73,97 +127,102 @@ export function ReportDetailView({
   } | null;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       {/* Back link */}
       <Link
         href={`/project/${projectId}/report`}
-        className="inline-flex items-center gap-1 text-sm text-foreground/60 transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm text-foreground/60 transition-colors hover:text-foreground"
       >
         <LuArrowLeft className="size-4" aria-hidden="true" />
         Back to reports
       </Link>
 
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-          <Icon className="size-5 text-primary" aria-hidden="true" />
+      <header className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <Icon className="size-6 text-primary" aria-hidden="true" />
         </div>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{typeName}</h1>
-          <p className="mt-0.5 text-sm text-foreground/60">
+          <p className="mt-1 text-sm text-foreground/60">
             {projectName}
             {artifact.stage &&
-              ` — ${artifact.stage.replace(/_/g, " ").toLowerCase()}`}
+              ` — ${getSectionDisplay(artifact.stage).title}`}
           </p>
         </div>
-      </div>
+      </header>
 
-      {/* Metadata grid */}
-      <section className="rounded-xl border border-divider bg-content1 p-5">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Metadata strip */}
+      <section className="rounded-xl border border-divider bg-content1 p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Format" value={artifact.mimeType ?? "Unknown"} />
           <Stat label="Size" value={formatBytes(artifact.sizeBytes)} />
           <Stat
             label="Generated"
-            value={new Date(artifact.createdAt).toLocaleString()}
-            icon={<LuClock className="size-4 text-foreground/50" />}
+            value={new Date(artifact.createdAt).toLocaleDateString()}
+            icon={<LuClock className="size-3.5 text-foreground/40" />}
           />
-          <Stat label="Storage" value={artifact.storageProvider.replace(/_/g, " ").toLowerCase()} />
-          <Stat label="Provider" value={artifact.job.selectedProvider} />
           <Stat
             label="Model"
             value={artifact.job.selectedModel}
-            icon={<LuCpu className="size-4 text-foreground/50" />}
-          />
-          <Stat
-            label="Tokens"
-            value={artifact.job.tokenUsageTotal.toLocaleString()}
-          />
-          <Stat
-            label="Est. cost"
-            value={
-              artifact.job.estimatedCostUsd !== null
-                ? `$${artifact.job.estimatedCostUsd.toFixed(4)}`
-                : "—"
-            }
-            icon={<LuCoins className="size-4 text-foreground/50" />}
+            icon={<LuCpu className="size-3.5 text-foreground/40" />}
           />
         </div>
       </section>
 
       {/* Report content */}
       {meta && (
-        <section className="space-y-4">
+        <section className="space-y-5">
           {meta.summary && (
-            <div className="rounded-xl border border-divider bg-content1 p-5">
-              <h2 className="text-lg font-semibold text-foreground">
-                Executive Summary
-              </h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
+            <div className="rounded-xl border border-divider bg-content1 p-5 sm:p-6">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <LuClipboardList className="size-4 text-primary" aria-hidden="true" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Executive Summary
+                </h2>
+              </div>
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
                 {meta.summary}
               </p>
             </div>
           )}
 
           {meta.items && meta.items.length > 0 && (
-            <div className="space-y-3">
-              {meta.items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl border border-divider bg-content1 p-5"
-                >
-                  {(item.title || item.section) && (
-                    <h3 className="text-base font-semibold text-foreground">
-                      {item.title ?? item.section}
-                    </h3>
-                  )}
-                  {item.content && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
-                      {item.content}
-                    </p>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-4">
+              {meta.items.map((item, idx) => {
+                const rawTitle = item.title ?? item.section ?? "";
+                const { title, icon: SectionIcon } = getSectionDisplay(rawTitle);
+
+                return (
+                  <article
+                    key={idx}
+                    className="rounded-xl border border-divider bg-content1 p-5 sm:p-6"
+                  >
+                    {rawTitle && (
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-content2">
+                          <SectionIcon
+                            className="size-4 text-foreground/60"
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <h3 className="text-base font-semibold text-foreground">
+                          {title}
+                        </h3>
+                      </div>
+                    )}
+                    {item.content && (
+                      <div className={rawTitle ? "mt-4 pl-[2.625rem]" : ""}>
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/75">
+                          {item.content}
+                        </p>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -196,9 +255,9 @@ function Stat({
   return (
     <div>
       <p className="text-xs text-foreground/50">{label}</p>
-      <p className="mt-0.5 flex items-center gap-1 text-sm font-medium text-foreground">
+      <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
         {icon}
-        {value}
+        <span className="truncate">{value}</span>
       </p>
     </div>
   );

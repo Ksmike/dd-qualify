@@ -197,6 +197,60 @@ function documentStatusClassName(status: ProjectDocumentProcessingStatus): strin
   return "bg-content2 text-foreground/80";
 }
 
+function isDiligenceStatusActive(status: DiligenceJobStatus): boolean {
+  return status === "QUEUED" || status === "RUNNING" || status === "WAITING_INPUT";
+}
+
+function diligenceCardMotionState(
+  job: DiligenceJobSummary | null
+): "idle" | "active" | "completed" | "failed" {
+  if (!job) {
+    return "idle";
+  }
+  if (isDiligenceStatusActive(job.status)) {
+    return "active";
+  }
+  if (job.status === "COMPLETED") {
+    return "completed";
+  }
+  if (job.status === "FAILED" || job.status === "CANCELED") {
+    return "failed";
+  }
+  return "idle";
+}
+
+function stageStatusClassName(
+  status: DiligenceStageStatus,
+  isCurrentStage: boolean
+): string {
+  if (status === "COMPLETED") {
+    return "border-success/40 bg-success/10";
+  }
+  if (status === "FAILED") {
+    return "border-danger/40 bg-danger/10";
+  }
+  if (status === "RUNNING") {
+    return "border-warning/40 bg-warning/10";
+  }
+  if (isCurrentStage) {
+    return "border-primary/40 bg-primary/10";
+  }
+  return "border-divider bg-background";
+}
+
+function stageStatusTextClassName(status: DiligenceStageStatus): string {
+  if (status === "COMPLETED") {
+    return "text-success";
+  }
+  if (status === "FAILED") {
+    return "text-danger";
+  }
+  if (status === "RUNNING") {
+    return "text-warning";
+  }
+  return "text-foreground/70";
+}
+
 export function ProjectDocumentsPanel({
   projectId,
   projectStatus,
@@ -229,6 +283,7 @@ export function ProjectDocumentsPanel({
     diligenceJob?.status === "QUEUED" ||
     diligenceJob?.status === "RUNNING" ||
     diligenceJob?.status === "WAITING_INPUT";
+  const diligenceCardState = diligenceCardMotionState(diligenceJob);
 
   const enabledApiProviders = apiKeyStatuses
     .filter((status) => status.isSet && status.enabled)
@@ -490,6 +545,7 @@ export function ProjectDocumentsPanel({
       }
       toast.success(labels.diligenceJobCreatedToast);
       toast.success(labels.diligenceStartToast);
+      window.dispatchEvent(new CustomEvent("ddq:sidebar-refresh"));
     } finally {
       setIsStartingDiligence(false);
     }
@@ -559,7 +615,7 @@ export function ProjectDocumentsPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="order-2 space-y-4 rounded-xl border border-divider bg-content1 p-6">
+      <section className="order-2 space-y-4 rounded-xl border border-divider bg-content1 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-foreground">
           {labels.documentsHeading}
         </h2>
@@ -669,13 +725,13 @@ export function ProjectDocumentsPanel({
                   animate={listItemAnimation.animate}
                   exit={listItemAnimation.exit}
                   transition={listItemTransition}
-                  className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2 shadow-sm transition-shadow hover:shadow-md"
+                  className="flex flex-col gap-2 rounded-md border border-divider bg-background px-3 py-2 shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {document.filename}
                     </p>
-                    <div className="mt-0.5 flex items-center gap-2">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
                       <p className="text-xs text-foreground/60">
                         {formatSize(document.size)}
                       </p>
@@ -701,7 +757,7 @@ export function ProjectDocumentsPanel({
                       <p className="mt-1 text-xs text-danger">{document.processingError}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 shrink-0">
                     <a
                       href={buildDocumentReadUrl(projectId, document.filename)}
                       className="text-xs font-medium text-primary hover:underline"
@@ -838,101 +894,223 @@ export function ProjectDocumentsPanel({
         )}
       </AnimatePresence>
 
-      <section className="order-1 space-y-3 rounded-xl border border-divider bg-content1 p-4">
-        <div className="flex items-center gap-2">
-          <LuBot aria-hidden="true" className="size-4 text-primary" />
-          <h3 className="text-base font-semibold text-foreground">
-            {labels.diligenceProgressHeading}
-          </h3>
+      <motion.section
+        layout
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, ease: "easeOut" }}
+        className="order-1 space-y-3 rounded-xl border border-divider bg-content1 p-4"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <motion.span
+              animate={
+                isDiligenceInProgress
+                  ? { rotate: [0, -8, 8, -5, 5, 0], scale: [1, 1.06, 1] }
+                  : { rotate: 0, scale: 1 }
+              }
+              transition={
+                isDiligenceInProgress
+                  ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 0.2 }
+              }
+            >
+              <LuBot aria-hidden="true" className="size-4 text-primary" />
+            </motion.span>
+            <h3 className="text-base font-semibold text-foreground">
+              {labels.diligenceProgressHeading}
+            </h3>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {diligenceJob && (
+              <motion.span
+                key={diligenceJob.status}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  diligenceCardState === "completed"
+                    ? "bg-success/15 text-success"
+                    : diligenceCardState === "failed"
+                      ? "bg-danger/15 text-danger"
+                      : diligenceCardState === "active"
+                        ? "bg-warning/15 text-warning"
+                        : "bg-content2 text-foreground/80"
+                }`}
+              >
+                {labels.diligenceStatuses[diligenceJob.status]}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
 
-        {!diligenceJob ? (
-          <p className="text-sm text-foreground/70">{labels.diligenceNoJobMessage}</p>
-        ) : (
-          <>
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <p className="text-foreground/70">
-                {labels.diligenceStatusLabel}: {labels.diligenceStatuses[diligenceJob.status]}
-              </p>
-              <p className="text-foreground/70">
-                {labels.diligenceCurrentStageLabel}: {diligenceJob.currentStage ? labels.diligenceStages[diligenceJob.currentStage] : "-"}
-              </p>
-              <p className="text-foreground/70">
-                {labels.diligenceJobIdLabel}: <span className="font-mono">{diligenceJob.id}</span>
-              </p>
-              <p className="text-foreground/70">
-                {labels.diligenceTokenUsageLabel}: {diligenceJob.tokenUsageTotal}
-              </p>
-              <p className="text-foreground/70">
-                {labels.diligenceCostEstimateLabel}: {formatCurrency(diligenceJob.estimatedCostUsd)}
-              </p>
-            </div>
-
-            {diligenceJob.errorMessage && (
-              <p className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
-                {labels.diligenceLastErrorLabel}: {diligenceJob.errorMessage}
-              </p>
-            )}
-
-            <div className="h-2 overflow-hidden rounded-full bg-content2">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{ width: `${diligenceJob.progressPercent}%` }}
-              />
-            </div>
-
-            {diligenceJob.stageRuns.length > 0 && (
-              <ul className="space-y-1">
-                {diligenceJob.stageRuns.map((stageRun) => (
-                  <li
-                    key={stageRun.stage}
-                    className="flex items-center justify-between rounded-md border border-divider bg-background px-2.5 py-1.5 text-xs"
+        <AnimatePresence mode="wait" initial={false}>
+          {!diligenceJob ? (
+            <motion.p
+              key="no-job"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="text-sm text-foreground/70"
+            >
+              {labels.diligenceNoJobMessage}
+            </motion.p>
+          ) : (
+            <motion.div
+              key={diligenceJob.id}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-3"
+            >
+              <div className="grid gap-2 text-sm md:grid-cols-2">
+                <p className="text-foreground/70">
+                  {labels.diligenceStatusLabel}: {labels.diligenceStatuses[diligenceJob.status]}
+                </p>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={`${diligenceJob.id}-${diligenceJob.currentStage ?? "none"}`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
+                    className="text-foreground/70"
                   >
-                    <span className="text-foreground">
-                      {labels.diligenceStages[stageRun.stage]}
-                    </span>
-                    <span className="text-foreground/70">{stageRun.status}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {(diligenceJob.status === "FAILED" ||
-              diligenceJob.status === "WAITING_INPUT" ||
-              diligenceJob.status === "RUNNING" ||
-              diligenceJob.status === "QUEUED") && (
-              <div className="flex justify-end gap-2">
-                {(diligenceJob.status === "FAILED" ||
-                  diligenceJob.status === "WAITING_INPUT") && (
-                  <button
-                    type="button"
-                    onClick={() => void handleRetryDiligence()}
-                    disabled={isRetryingDiligence}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary/15 px-3 py-2 text-sm font-medium text-primary hover:opacity-90 disabled:opacity-60"
-                  >
-                    <LuRefreshCw
-                      aria-hidden="true"
-                      className={`size-4 ${isRetryingDiligence ? "animate-spin" : ""}`}
-                    />
-                    {labels.retryDiligenceCta}
-                  </button>
-                )}
-                {(diligenceJob.status === "RUNNING" ||
-                  diligenceJob.status === "QUEUED") && (
-                  <button
-                    type="button"
-                    onClick={() => void handleCancelDiligence()}
-                    disabled={isCancellingDiligence}
-                    className="inline-flex items-center gap-2 rounded-md bg-danger/15 px-3 py-2 text-sm font-medium text-danger hover:opacity-90 disabled:opacity-60"
-                  >
-                    {labels.cancelDiligenceCta}
-                  </button>
-                )}
+                    {labels.diligenceCurrentStageLabel}:{" "}
+                    {diligenceJob.currentStage
+                      ? labels.diligenceStages[diligenceJob.currentStage]
+                      : "-"}
+                  </motion.p>
+                </AnimatePresence>
+                <p className="text-foreground/70">
+                  {labels.diligenceJobIdLabel}:{" "}
+                  <span className="font-mono">{diligenceJob.id}</span>
+                </p>
+                <motion.p
+                  key={`${diligenceJob.id}-tokens-${diligenceJob.tokenUsageTotal}`}
+                  initial={{ opacity: 0.5 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-foreground/70"
+                >
+                  {labels.diligenceTokenUsageLabel}: {diligenceJob.tokenUsageTotal}
+                </motion.p>
+                <motion.p
+                  key={`${diligenceJob.id}-cost-${diligenceJob.estimatedCostUsd ?? "none"}`}
+                  initial={{ opacity: 0.5 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-foreground/70"
+                >
+                  {labels.diligenceCostEstimateLabel}:{" "}
+                  {formatCurrency(diligenceJob.estimatedCostUsd)}
+                </motion.p>
               </div>
-            )}
-          </>
-        )}
-      </section>
+
+              <AnimatePresence>
+                {diligenceJob.errorMessage && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
+                    className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger"
+                  >
+                    {labels.diligenceLastErrorLabel}: {diligenceJob.errorMessage}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <div className="h-2 overflow-hidden rounded-full bg-content2">
+                <motion.div
+                  className={`h-full bg-primary ${
+                    isDiligenceInProgress ? "animate-pulse" : ""
+                  }`}
+                  animate={{ width: `${diligenceJob.progressPercent}%` }}
+                  transition={{ type: "spring", stiffness: 140, damping: 24 }}
+                />
+              </div>
+
+              {diligenceJob.stageRuns.length > 0 && (
+                <motion.ul layout className="space-y-1">
+                  {diligenceJob.stageRuns.map((stageRun) => {
+                    const isCurrentStage =
+                      diligenceJob.currentStage === stageRun.stage &&
+                      stageRun.status !== "COMPLETED";
+                    return (
+                      <motion.li
+                        key={stageRun.stage}
+                        layout
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`flex items-center justify-between rounded-md border px-2.5 py-1.5 text-xs ${stageStatusClassName(
+                          stageRun.status,
+                          isCurrentStage
+                        )}`}
+                      >
+                        <span className="text-foreground">
+                          {labels.diligenceStages[stageRun.stage]}
+                        </span>
+                        <motion.span
+                          key={`${stageRun.stage}-${stageRun.status}-${stageRun.attempts}`}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.14 }}
+                          className={stageStatusTextClassName(stageRun.status)}
+                        >
+                          {stageRun.status}
+                        </motion.span>
+                      </motion.li>
+                    );
+                  })}
+                </motion.ul>
+              )}
+
+              {(diligenceJob.status === "FAILED" ||
+                diligenceJob.status === "WAITING_INPUT" ||
+                diligenceJob.status === "RUNNING" ||
+                diligenceJob.status === "QUEUED") && (
+                <motion.div layout className="flex justify-end gap-2">
+                  {(diligenceJob.status === "FAILED" ||
+                    diligenceJob.status === "WAITING_INPUT") && (
+                    <button
+                      type="button"
+                      onClick={() => void handleRetryDiligence()}
+                      disabled={isRetryingDiligence}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary/15 px-3 py-2 text-sm font-medium text-primary hover:opacity-90 disabled:opacity-60"
+                    >
+                      <LuRefreshCw
+                        aria-hidden="true"
+                        className={`size-4 ${isRetryingDiligence ? "animate-spin" : ""}`}
+                      />
+                      {labels.retryDiligenceCta}
+                    </button>
+                  )}
+                  {(diligenceJob.status === "RUNNING" ||
+                    diligenceJob.status === "QUEUED") && (
+                    <motion.button
+                      type="button"
+                      onClick={() => void handleCancelDiligence()}
+                      disabled={isCancellingDiligence}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center gap-2 rounded-md bg-danger/15 px-3 py-2 text-sm font-medium text-danger hover:opacity-90 disabled:opacity-60"
+                    >
+                      {labels.cancelDiligenceCta}
+                    </motion.button>
+                  )}
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.section>
 
       {(projectStatus === "reviewed" || projectStatus === "complete") && (
         <section className="space-y-4 rounded-xl border border-divider bg-content1 p-4">

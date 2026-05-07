@@ -30,6 +30,20 @@ vi.mock("@/lib/models/ProjectModel", () => ({
   },
 }));
 
+const mockGetReportsForProject = vi.fn();
+vi.mock("@/lib/models/DiligenceJobModel", () => ({
+  DiligenceJobModel: {
+    getReportsForProject: (...args: unknown[]) =>
+      mockGetReportsForProject(...args),
+  },
+}));
+
+vi.mock("@/app/(app)/project/[id]/enquiries/EnquiriesView", () => ({
+  EnquiriesView: ({ projectName }: { projectName: string }) => (
+    <div>EnquiriesView:{projectName}</div>
+  ),
+}));
+
 vi.mock("@/labels", () => ({
   getLabelsForLocale: vi.fn(() => ({
     locale: "en",
@@ -37,8 +51,25 @@ vi.mock("@/labels", () => ({
       app: {
         enquiries: {
           heading: "Enquiries",
-          description: "Open questions and follow-ups for this project.",
-          placeholder: "Enquiries are coming soon.",
+          description: "Investor Q&A grounded in the completed diligence report and source files.",
+          lockedTitle: "Enquiries unlock after a completed report.",
+          lockedDescription:
+            "Finish due diligence and generate a report first. Then you can ask investor-style follow-up questions here.",
+          introMessage:
+            "Ask me anything about this diligence report and the uploaded documents. I will answer using available evidence and call out any gaps.",
+          sampleQuestionsHeading: "Try asking:",
+          sampleQuestionOne: "What is the biggest risk that could break this deal?",
+          sampleQuestionTwo: "Which claims have weak supporting evidence?",
+          sampleQuestionThree: "What should we ask founders before IC?",
+          sendCta: "Ask agent",
+          sendingCta: "Analyzing…",
+          investorLabel: "Investor",
+          agentLabel: "Diligence agent",
+          agentThinking: "Reviewing report and evidence…",
+          sourcesHeading: "Evidence used",
+          errorPrefix: "Enquiry failed",
+          genericError: "Could not generate an answer for that question.",
+          placeholder: "Ask a follow-up about the report or uploaded data...",
         },
       },
     },
@@ -50,6 +81,10 @@ const { default: EnquiriesPage } = await import(
 );
 
 describe("project enquiries page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("redirects unauthenticated users to login", async () => {
     mockAuth.mockResolvedValue(null);
 
@@ -67,7 +102,7 @@ describe("project enquiries page", () => {
     ).rejects.toThrow("NOT_FOUND");
   });
 
-  it("renders enquiries placeholder for the project", async () => {
+  it("renders locked state when no completed report exists", async () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1", locale: "en" } });
     mockFindByIdForUser.mockResolvedValue({
       id: "project-1",
@@ -75,6 +110,7 @@ describe("project enquiries page", () => {
       status: "draft",
       createdAt: new Date(),
     });
+    mockGetReportsForProject.mockResolvedValue([]);
 
     const page = await EnquiriesPage({
       params: Promise.resolve({ id: "project-1" }),
@@ -83,8 +119,42 @@ describe("project enquiries page", () => {
     render(page);
     expect(screen.getByText("Enquiries")).toBeInTheDocument();
     expect(
-      screen.getByText("Alpha Project - Open questions and follow-ups for this project.")
+      screen.getByText(
+        "Alpha Project - Investor Q&A grounded in the completed diligence report and source files."
+      )
     ).toBeInTheDocument();
-    expect(screen.getByText("Enquiries are coming soon.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Enquiries unlock after a completed report.")
+    ).toBeInTheDocument();
+  });
+
+  it("renders enquiries chat view when a completed report exists", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "user-1", locale: "en" } });
+    mockFindByIdForUser.mockResolvedValue({
+      id: "project-1",
+      name: "Alpha Project",
+      status: "reviewed",
+      createdAt: new Date(),
+    });
+    mockGetReportsForProject.mockResolvedValue([
+      {
+        id: "artifact-1",
+        jobId: "job-1",
+        stage: "FINAL_REPORT",
+        type: "GENERATED_REPORT",
+        mimeType: "application/json",
+        sizeBytes: 1200,
+        createdAt: new Date(),
+        jobStatus: "COMPLETED",
+        jobCompletedAt: new Date(),
+      },
+    ]);
+
+    const page = await EnquiriesPage({
+      params: Promise.resolve({ id: "project-1" }),
+    });
+
+    render(page);
+    expect(screen.getByText("EnquiriesView:Alpha Project")).toBeInTheDocument();
   });
 });
