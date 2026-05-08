@@ -115,7 +115,7 @@ describe("ApiKeyCard", () => {
     await waitFor(() => {
       expect(mockUpsertApiKey).toHaveBeenCalledWith("OPENAI", "sk-new-key-1234", {
         defaultModel: "",
-        enabled: false,
+        enabled: true,
       });
     });
   });

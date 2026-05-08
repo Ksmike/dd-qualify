@@ -76,9 +76,11 @@ export function ApiKeyCard({
     if (!trimmed) return;
     setError("");
     startTransition(async () => {
+      // When adding a new key, automatically enable it
+      const shouldEnable = status.isSet ? enabled : true;
       const result = await upsertApiKey(provider, trimmed, {
         defaultModel,
-        enabled,
+        enabled: shouldEnable,
       });
       if (result.error) {
         setError(result.error);
@@ -90,13 +92,14 @@ export function ApiKeyCard({
         isSet: true,
         hint: trimmed.slice(-4),
         defaultModel,
-        enabled,
+        enabled: shouldEnable,
         lastValidatedAt: status.lastValidatedAt,
       };
       setStatus(updated);
       onUpdate(updated);
       setInputValue("");
       setMode("idle");
+      setEnabled(shouldEnable);
     });
   }
 
