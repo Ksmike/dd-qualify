@@ -410,8 +410,8 @@ Those may become necessary later, but they are not where I would spend pre-seed 
 
 ### CI/CD
 
-- GitHub Actions for lint, typecheck, tests, and migration checks
-- preview deployments on every PR
+- keep Vercel preview deployments and deployment CD for the web app
+- add GitHub Actions for lint, typecheck, tests, and migration checks
 - production deploys gated on green checks
 - explicit Prisma migration review before production apply
 
