@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
+import { MermaidDiagram } from "@/components/MermaidDiagram";
 
 type DocsMarkdownProps = {
   content: string;
@@ -10,6 +11,24 @@ export function DocsMarkdown({ content }: DocsMarkdownProps) {
     <div className="prose prose-sm max-w-none text-foreground/90 prose-headings:text-foreground prose-p:text-foreground/80 prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-code:text-foreground prose-pre:border prose-pre:border-divider prose-pre:bg-content1 prose-th:text-foreground prose-td:text-foreground/80">
       <ReactMarkdown
         components={{
+          code({ className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || "");
+            const lang = match?.[1];
+
+            if (lang === "mermaid") {
+              const chart = String(children).replace(/\n$/, "");
+              return <MermaidDiagram chart={chart} />;
+            }
+
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
+          pre({ children }) {
+            return <>{children}</>;
+          },
           a({ href, children, ...props }) {
             if (!href) {
               return <a {...props}>{children}</a>;
