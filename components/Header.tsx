@@ -31,6 +31,12 @@ export function Header({ user }: { user?: HeaderUser }) {
           Coverage
         </Link>
         <Link
+          href="/docs"
+          className="hidden sm:inline-block text-sm font-medium text-foreground/70 transition-colors hover:text-foreground px-2"
+        >
+          Docs
+        </Link>
+        <Link
           href="/dashboard"
           className="hidden md:inline-block text-sm font-medium text-foreground/70 transition-colors hover:text-foreground px-2"
         >

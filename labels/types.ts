@@ -47,6 +47,17 @@ export type MarketingLabels = {
 
 export type AppLabels = {
   marketing: MarketingLabels;
+  docs: {
+    heading: string;
+    description: string;
+    sidebarEyebrow: string;
+    indexEyebrow: string;
+    indexHeading: string;
+    indexDescription: string;
+    allDocsCta: string;
+    sourceLabel: string;
+    noSummaryFallback: string;
+  };
   app: {
     dashboard: {
       heading: string;
