@@ -41,6 +41,7 @@ The sample NovaBridge files are included in [`DEMO/`](./DEMO).
 - Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 - Stage 3 Production Design: [`docs/STAGE3_PRODUCTION_ARCHITECTURE.md`](./docs/STAGE3_PRODUCTION_ARCHITECTURE.md)
 - Database Structure: [`docs/DATABASE.md`](./docs/DATABASE.md)
+- Next Steps: [`docs/NEXTSTEPS.md`](./docs/NEXTSTEPS.md)
 
 ## Getting Started
 

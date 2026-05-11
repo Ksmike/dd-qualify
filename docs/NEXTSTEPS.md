@@ -29,9 +29,9 @@ Currently only email + password credentials auth is implemented.
 
 ## SEO
 
-No SEO work has been done. The app is entirely behind auth with no public-facing optimised content.
+Only basic SEO work exists today. There is a public marketing page and root metadata, but there has been no meaningful search-optimisation pass.
 
-- **Meta tags** — No `<meta description>`, Open Graph tags, or Twitter cards on marketing pages.
+- **Meta tags** — Basic `title` and `description` metadata exist, but Open Graph and Twitter card metadata are not configured.
 - **Sitemap** — No `sitemap.xml` generation.
 - **Robots.txt** — No `robots.txt` configured. Search engines have no crawl guidance.
 - **Structured data** — No JSON-LD or schema.org markup for the marketing site.
@@ -73,11 +73,11 @@ No email infrastructure exists. The app has no way to communicate with users out
 ## Other Notable Gaps
 
 - **Audit logging** — No record of who did what and when. Important for compliance in financial services.
-- **Rate limiting on all endpoints** — Only auth routes have rate limiting. Document upload and diligence triggers are unprotected.
+- **Rate limiting on all endpoints** — Basic in-memory rate limiting exists for auth flows and document uploads, but it is not consistently applied across document reads/deletes, diligence triggers, enquiries, or other sensitive endpoints.
 - **File type support** — `.pages`, `.key`, `.keynote` are accepted on upload but fall through to metadata-only extraction (no text extractor implemented).
 - **Internationalisation** — Label system exists but only English locale is populated. No language switcher in the UI.
 - **Accessibility audit** — No formal WCAG audit has been performed. Keyboard navigation and screen reader testing needed.
 - **Error boundaries** — No React error boundaries. Unhandled errors crash the entire page.
 - **Monitoring / observability** — No APM, error tracking (Sentry), or structured logging in place.
-- **CI/CD pipeline** — No GitHub Actions or similar. Tests and linting aren't enforced on PRs.
+- **Automated quality gates** — Vercel already provides deployment previews and deployment CD, so the main gap is not "no CI/CD." The missing piece is enforced pre-merge checks: tests, linting, and typechecking are not yet required as blocking PR gates.
 - **Mobile responsive sidebar** — Sidebar is `hidden md:flex`. No mobile navigation exists.
