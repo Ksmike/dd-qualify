@@ -1,5 +1,3 @@
-# Stage 3 Production Architecture
-
 ## Context
 
 This document describes how I would take the current `DD Qualify` Stage 2 prototype to a production-ready `Mythras` platform for multiple PE firms, multiple concurrent deals, and multiple analysts per firm.

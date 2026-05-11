@@ -1,9 +1,3 @@
-# Next Steps
-
-Areas not yet addressed in the current build. Grouped by priority and effort.
-
----
-
 ## Caching
 
 No caching layer exists today. Every page load hits the database directly.

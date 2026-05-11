@@ -1,5 +1,3 @@
-# Database Structure
-
 ## Prisma Setup
 
 This project uses Prisma 7 with the `prisma-client` generator and a multi-file schema:

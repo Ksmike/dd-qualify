@@ -1,5 +1,3 @@
-# Architecture
-
 ## Purpose
 
 This document explains how `DD Qualify` is structured end-to-end, from user actions in the UI to persistence and LLM-backed diligence outputs.
